@@ -1,0 +1,14 @@
+name: pss
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - numpy
+  - jupyter
+  - matplotlib
+  - pandas
+  - pyspark
+  - scikit-learn
+  - seaborn
+  - mmcif_pdbx 
+  - pandas-profiling
