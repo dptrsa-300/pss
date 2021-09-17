@@ -130,3 +130,7 @@ dmypy.json
 
 # files
 PSS GCS Storage Key.json
+/blast/*
+*.fasta
+*.parquet
+*.gz
