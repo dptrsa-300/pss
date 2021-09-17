@@ -3,12 +3,19 @@ channels:
   - conda-forge
 dependencies:
   - python=3.9
-  - numpy
   - jupyter
   - matplotlib
-  - pandas
+  - mkl-service
+  - mmcif_pdbx
+  - numpy 
+  - pandas=1.3.3
+  - pandas-profiling
+  - pip
   - pyspark
   - scikit-learn
   - seaborn
-  - mmcif_pdbx 
-  - pandas-profiling
+  - pip:
+    - appdirs==1.4.0
+    - biopython==1.68
+    - https://github.com/Theano/Theano/archive/master.zip
+    - https://github.com/Lasagne/Lasagne/archive/master.zip
