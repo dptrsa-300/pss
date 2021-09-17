@@ -18,7 +18,11 @@ from Bio.PDB import PDBParser
 def get_distance_matrix(pdb_path):
     parser = PDBParser()
     structure = parser.get_structure('structure', pdb_path).get_list()[0]
-    residue_positions = get_residue_positions(structure)
+    return get_distance_matrix_from_structure(structure)
+
+
+def get_distance_matrix_from_structure(pdb_structure):
+    residue_positions = get_residue_positions(pdb_structure)
     pdb_dist_mat = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(residue_positions, 'euclidean'))
     pdb_dist_mat[numpy.isnan(pdb_dist_mat)] = float('inf')
     return pdb_dist_mat

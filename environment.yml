@@ -3,6 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.9
+  - google-cloud-sdk
   - jupyter
   - matplotlib
   - mkl-service
@@ -17,5 +18,7 @@ dependencies:
   - pip:
     - appdirs==1.4.0
     - biopython==1.68
+    - google-api-python-client
+    - google-cloud-storage
     - https://github.com/Theano/Theano/archive/master.zip
     - https://github.com/Lasagne/Lasagne/archive/master.zip
