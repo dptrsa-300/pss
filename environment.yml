@@ -12,3 +12,5 @@ dependencies:
   - seaborn
   - mmcif_pdbx 
   - pandas-profiling
+  - pyarrow
+  - biopython
