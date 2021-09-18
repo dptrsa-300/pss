@@ -15,6 +15,7 @@ dependencies:
   - pyspark
   - scikit-learn
   - seaborn
+  - tqdm
   - pip:
     - appdirs==1.4.0
     - biopython==1.68

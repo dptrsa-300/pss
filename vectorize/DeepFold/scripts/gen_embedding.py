@@ -16,8 +16,8 @@ from network import DeepFold
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description='Create embeddings for a protein structure. Output a numpy embedding.')
-    parser.add_argument('pdb_file', metavar='pdb_file', help='an input pdb file')
-    parser.add_argument('output_file', metavar='output_file', help='an output numpy embedding')
+    parser.add_argument('--pdb-file', metavar='pdb_file', help='an input pdb file')
+    parser.add_argument('--output-file', metavar='output_file', help='an output numpy embedding')
     parser.add_argument('--model', metavar='model', default=os.path.join(os.path.dirname(__file__), './../models/deepfold.model'), help='the network model to load')
     args = parser.parse_args()
 
