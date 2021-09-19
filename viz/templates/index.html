@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Protein Structure Similarity</title>
+    <!-- Load CSS files -->
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <!-- Project CSS File -->
+    <link rel="stylesheet" href="css/main.css">
+  </head>
+  <body>
+    <div id="main-container" class="container-fluid">
+      <!-- Navigation Menu-->
+      <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="index.html">Protein Structure Similarity<span class="sr-only">(current)</span></a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+          <div class="navbar-nav">
+            <a class="nav-item nav-link" href="about.html">About</a>
+            <a class="nav-item nav-link" href="instructions.html">Instructions</a>
+            <a class="nav-item nav-link" href="dashboard.html">Protein Explorer</a>
+            <a class="nav-item nav-link" href="details.html">Protein Details</a>
+          </div>
+        </div>
+      </nav>
+      <div id="content-container" class="container-fluid">
+        <!-- Jumbotron Intro Section -->
+        <div class="detail-3">
+          <h1 class="display-4">AlphaFold Protein Structure Similarity Explorer</h1>
+          <hr class="my-4">
+          <p class="lead">​Our mission is to increase the accessibility of AlphaFold's predictions and data to enable a whole new class of biomedical research.</P>
+          <p class="lead">​Select a target protein, and this tool will return results of proteins with similar structures. Select a result to further compare its details against the target with our 3D protein viewer.</p>
+          <hr class="my-4">
+          <br />
+          <a class="btn btn-primary btn-lg" href="dashboard.html" role="button">Dive Right In!</a>
+          <a class="btn btn-primary btn-lg" href="instructions.html" role="button">View Instructions</a>
+        </div>
+      </div>
+    </div>
+  <!-- Load Javascript -->
+  <!-- Bootstrap Related -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+  <!-- D3 -->
+  <script src="https://d3js.org/d3.v4.js"></script>
+  <!-- Project JS -->
+  </body>
+</html>
