@@ -12,6 +12,7 @@ dependencies:
   - pandas=1.3.3
   - pandas-profiling
   - pip
+  - pyarrow
   - pyspark
   - scikit-learn
   - seaborn
