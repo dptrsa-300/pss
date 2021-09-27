@@ -11,6 +11,10 @@ storage_client = storage.Client()
 bucket = storage_client.get_bucket(gcs_bucket)
 
 
+def download_text(key):
+    blob = bucket.blob(key)
+    return blob.download_as_string()
+
 def download_gzip(key):
     blob = bucket.blob(key)
     return gzip.open(io.BytesIO(blob.download_as_string()), mode="rt")
