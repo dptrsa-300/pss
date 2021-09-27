@@ -14,7 +14,7 @@ def get_spark_session():
 
 def get_local_spark_session():
     spark = get_spark_session()
-    spark.conf.set("spark.driver.host", "localhost")
+    spark.conf.set("spark.sql.execution.arrow.enabled", "true")
     # Setup hadoop fs configuration for schema gs://
     conf = spark.sparkContext._jsc.hadoopConfiguration()
     conf.set("fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")

@@ -1,6 +1,4 @@
 from google.cloud import storage
-from zipfile import ZipFile
-from zipfile import is_zipfile
 import gzip
 import io
 import os
