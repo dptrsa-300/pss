@@ -136,3 +136,4 @@ PSS GCS Storage Key.json
 *.gz
 *.out
 *.csv
+*.cif
