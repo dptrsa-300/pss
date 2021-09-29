@@ -35,7 +35,7 @@ def get_residue_ids(structure):
 
 def get_residue_positions(structure):
     residue_ids = get_residue_ids(structure)
-    positions = numpy.ones((residue_ids[-1] - residue_ids[0] + 1, 3)) * float('inf')
+    positions = numpy.ones((len(residue_ids), 3)) * float('inf')
     for residue in structure.get_residues():
         atoms = residue.get_atoms()
         for a in atoms:
