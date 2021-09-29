@@ -37,7 +37,7 @@ def get_residue_positions(structure):
     residue_ids = get_residue_ids(structure)
     positions = numpy.ones((residue_ids[-1] - residue_ids[0] + 1, 3)) * float('inf')
     for residue in structure.get_residues():
-        atoms = residue.get_atom()
+        atoms = residue.get_atoms()
         for a in atoms:
             if a.get_name() == 'CA':
                 positions[residue.get_id()[1] - residue_ids[0]] = a.get_coord()
