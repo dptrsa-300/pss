@@ -19,7 +19,7 @@ dependencies:
   - tqdm
   - pip:
     - appdirs==1.4.0
-    - bio-embeddings[all]
+    # - bio-embeddings[all]
     - biopython
     - google-api-python-client
     - google-cloud-storage
