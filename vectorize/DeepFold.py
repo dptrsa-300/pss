@@ -103,7 +103,7 @@ if __name__=="__main__":
 
     sorted_and_grouped_files = \
         [(k, sorted(v, key=lambda x: pr.protein_file_number(pr.get_stripped_protein_filename(x)))) 
-         for k, v in grouped_files.items() if len(v) > 1]
+         for k, v in grouped_files.items()]
     
     for i in tqdm(range(len(sorted_and_grouped_files) // 1000 + 1)):
         print(f"****{i*1000} to {(i+1)*1000}****")
