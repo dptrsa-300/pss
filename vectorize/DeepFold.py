@@ -12,7 +12,9 @@ sys.path.append(f"{os.path.dirname(__file__)}/DeepFold/scripts/")
 sys.path.append(f"{os.path.dirname(__file__)}/..")
 
 import pandas as pd
+import numpy as np
 from tqdm.auto import tqdm
+from tqdm.contrib.concurrent import process_map
 
 import utils.gcs_utils as gcs
 import utils.proteins as pr
@@ -40,19 +42,21 @@ def combine_structures(list_of_structures):
     return main_structure
 
 def vectorize_protein(files, open_method):
-    structures = []
+    # structures = []
     parser = PDBParser()
+    embeddings = []
     for file in files:
         with open_method(file) as f:
             struct = parser.get_structure('structure', f).get_list()[0]
-            structures.append(struct)
-            
-    structure = combine_structures(structures)
-    distance_matrix = get_distance_matrix_from_structure(structure).astype("float32")
-    model = DeepFold(max_length=distance_matrix.shape[0], projection_level=1)
-    model.load_from_file(model_file)
-    embedding = model.get_embedding(distance_matrix)
-    return embedding
+        #     structures.append(struct)
+        # structure = combine_structures(structures)
+        distance_matrix = get_distance_matrix_from_structure(struct).astype("float32")
+        model = DeepFold(max_length=distance_matrix.shape[0], projection_level=1)
+        model.load_from_file(model_file)
+        emb = model.get_embedding(distance_matrix)
+        embeddings.append(emb)
+    embeddings = np.mean(np.vstack(embeddings), axis=0)
+    return embeddings
 
 
 def vectorize_protein_file_from_local(protein, files):
@@ -107,8 +111,5 @@ if __name__=="__main__":
     
     for i in tqdm(range(len(sorted_and_grouped_files) // 1000 + 1)):
         print(f"****{i*1000} to {(i+1)*1000}****")
-        start = time.time()
-        with Pool() as p:
-            embeddings = p.map(partial(apply_vector_fn, fn=fn), sorted_and_grouped_files[i*1000:(i+1)*1000])
-        print(f"took {int(time.time() - start)} seconds")
+        embeddings = process_map(partial(apply_vector_fn, fn=fn), sorted_and_grouped_files[i*1000:(i+1)*1000], max_workers=8)
         pd.DataFrame(embeddings, columns=["protein_id", "deepfold"]).to_csv(f"{args.output_file}_{i}.csv", index=False)
