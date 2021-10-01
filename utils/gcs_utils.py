@@ -13,7 +13,8 @@ bucket = storage_client.get_bucket(gcs_bucket)
 
 def download_text(key):
     blob = bucket.blob(key)
-    return blob.download_as_string()
+    return blob.download_as_string().decode("utf-8")
+
 
 def download_gzip(key):
     blob = bucket.blob(key)
@@ -40,3 +41,15 @@ def get_gcs_path(key):
 def list_file_paths(prefix=None):
     keys = list_keys(prefix)
     return [get_gcs_path(k) for k in keys]
+
+def upload_blob(source_file_name, destination_blob_name):
+    """Uploads a file to the bucket."""
+    # bucket_name = "your-bucket-name"
+    # source_file_name = "local/path/to/file"
+    # destination_blob_name = "storage-object-name"
+
+    bucket = storage_client.bucket(gcs_bucket)
+    blob = bucket.blob(destination_blob_name)
+
+    blob.upload_from_filename(source_file_name)
+
