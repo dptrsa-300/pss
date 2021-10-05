@@ -19,7 +19,8 @@ dependencies:
   - tqdm
   - pip:
     - appdirs==1.4.0
-    - biopython==1.68
+    # - bio-embeddings[all]
+    - biopython
     - google-api-python-client
     - google-cloud-storage
     - https://github.com/Theano/Theano/archive/master.zip
