@@ -68,7 +68,10 @@ def join_atoms_with_confidence(atoms, local_confidence):
 
 
 def reduce_sequence_df(df):
-    return df.sort_values(['pdbx_db_accession', 'pdbx_align_begin'])\
+    df['pdbx_align_begin'] = df['pdbx_align_begin'].astype(int)
+    df['file_number'] = df.protein_filename.apply(protein_file_number)
+    assert df['file_number'].dtype == int
+    return df.sort_values(['pdbx_db_accession', 'pdbx_align_begin', 'file_number'])\
         .groupby(['pdbx_db_accession', 'db_code', 'db_name', "protein_id"])\
         .agg({"pdbx_seq_one_letter_code": reduce_sequences, "protein_filename": lambda x: x.iloc[0]})\
         .reset_index()
