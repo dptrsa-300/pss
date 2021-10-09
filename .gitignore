@@ -136,6 +136,9 @@ PSS GCS Storage Key.json
 *.gz
 *.out
 *.csv
+
+gcloud.json
+
 *.cif
 /tmalign/*
 *.pdb
