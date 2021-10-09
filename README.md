@@ -42,14 +42,7 @@ conda install --channel conda-forge -f environment.yml
 
 #### Install TMAlign
 
-**A. The C++ Executable**
 1. Download the [TM-Align C++ source](https://zhanggroup.org/TM-align/TMalign.cpp) from Yang Zhang's Research Group at the University of Michigan into tmalign/.
 2. Run `chmod 777 -R tmalign/`.
 3. Compile the `cpp` file using (from your notebook directory `/`): `g++ -static -O3 -ffast-math -lm -o tmalign/TMalign tmalign/TMalign.cpp`.
 4. Add `tmalign/` to your PATH.
-
-**B. The Python Wrapper**
-
-`conda install -c schrodinger pymol
-conda install -c schrodinger pymol-psico
-conda install -c speleo3 tmalign`
