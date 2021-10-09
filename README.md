@@ -1,19 +1,24 @@
 # pss
 Using predicted protein structure data from DeepMind's AlphaFold to explore structural similarities among all 23K+ proteins in the human proteome.
 
+## Conventions
+
+* When referring to proteins in code or in datasets, use the full filename (ex.: AF-Q7Z5P9-F10-model_v1).
+
 ## Environment Setup
-### Conda
-#### Local
+
+### Local
+
 1. Install miniconda: [https://docs.conda.io/projects/conda/en/latest/user-guide/install/macos.html](https://docs.conda.io/projects/conda/en/latest/user-guide/install/macos.html)
 2. ```conda env create -f environment.yml --force```  
 3. ```conda activate pss```
 4. [upon changes to `environment.yml`] `conda env update -f environment.yml` 
 
+### Colab/JupyterLab
 
-#### Colab/JupyterLab
-Pull in `environment.yml` into directory
+1. Pull in `environment.yml` into directory
+2. In top cell add:
 
-In top cell add 
 ```
 %%bash
 MINICONDA_INSTALLER_SCRIPT=Miniconda3-4.5.4-Linux-x86_64.sh
@@ -26,4 +31,18 @@ chmod +x $MINICONDA_INSTALLER_SCRIPT
 conda install --channel conda-forge -f environment.yml
 ```
 
+### Both:
 
+#### Install BLAST+
+
+1. Download the [BLAST+ utilities](https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) from the NIH. Make sure you download the right executable based on your architecture (ex.: Linux, Colab or Google Cloud JupyterLab should use the [Linux X64 tarball](https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ncbi-blast-2.12.0+-x64-linux.tar.gz)).
+2. Unpack the archive into blast/.
+3. Run `chmod 777 -R blast/` to change permissions on the executables such that you can run them.
+4. Add `blast/bin/` to your PATH.
+
+#### Install TMAlign
+
+1. Download the [TM-Align C++ source](https://zhanggroup.org/TM-align/TMalign.cpp) from Yang Zhang's Research Group at the University of Michigan into tmalign/.
+2. Run `chmod 777 -R tmalign/`.
+3. Compile the `cpp` file using (from your notebook directory `/`): `g++ -static -O3 -ffast-math -lm -o tmalign/TMalign tmalign/TMalign.cpp`.
+4. Add `tmalign/` to your PATH.
