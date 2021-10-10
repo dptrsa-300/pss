@@ -2,20 +2,29 @@ from google.cloud import storage
 import gzip
 import io
 import os
+import pickle 
+import pyarrow.parquet as pq 
+import pandas as pd 
+
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = f"{os.path.dirname(__file__)}/../gcloud.json"
 
 gcs_bucket = "capstone-fall21-protein"
 storage_client = storage.Client()
 bucket = storage_client.get_bucket(gcs_bucket)
 
-
-def download_pkl(key):
-    blob = bucket.blob(key)
-    return blob.download_as_string()
-
 def download_text(key):
     blob = bucket.blob(key)
     return blob.download_as_string().decode("utf-8")
+
+
+def download_parquet(key):
+    blob = bucket.blob(key)
+    return pd.read_parquet(io.BytesIO(blob.download_as_string()))
+
+
+def download_pkl(key):
+    blob = bucket.blob(key)
+    return pickle.load(io.BytesIO(blob.download_as_string()))
 
 
 def download_gzip(key):
