@@ -73,7 +73,7 @@ def reduce_sequence_df(df):
     assert df['file_number'].dtype == int
     return df.sort_values(['pdbx_db_accession', 'pdbx_align_begin', 'file_number'])\
         .groupby(['pdbx_db_accession', 'db_code', 'db_name', "protein_id"])\
-        .agg({"pdbx_seq_one_letter_code": reduce_sequences, "protein_filename": lambda x: x.iloc[0]})\
+        .agg({"pdbx_seq_one_letter_code": reduce_sequences, "protein_filename": lambda x: x.iloc[0], "confidence_pLDDT": lambda x: np.mean(x.astype(float))})\
         .reset_index()
 
 
