@@ -219,7 +219,7 @@ def join_blast(clusters, pairwise_metrics=None):
     '''Return clusters with all possible combos and their blast scores.
     pairwise_metrics is the pre-calculated blast file.'''
     
-    if not pairwise_metrics:
+    if isinstance(pairwise_metrics, type(None)):
         pairwise_metrics = pd.read_csv(io.StringIO(gcs.download_text('annotations/blast_annotations.csv')))
     
     all_protein_combos_per_cluster = find_all_protein_combos_per_cluster(clusters)
