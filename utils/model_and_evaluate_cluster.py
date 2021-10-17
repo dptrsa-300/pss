@@ -128,13 +128,12 @@ def sequence_stats(clusters,
     return cluster_stats 
 
 
-
-def protein_confidence_agg(clusters, 
-                           n=None,
-                           prefix='structure_files/atom_sites'):
+def download_asp(prefix='structure_files/atom_sites', 
+                 n=None,
+                 print_status=False):
     """Downloads protein files, then summarizes amino acid sequence-level confidence information."""
-    
     keys = gcs.list_file_paths(prefix)
+    
     if not n:
         n = len(keys)
 
@@ -142,7 +141,8 @@ def protein_confidence_agg(clusters,
     asp = pd.DataFrame(columns=["protein_id", "label_seq_id", "pdbx_sifts_xref_db_res", "confidence_pLDDT"])
 
     for key in keys[:n]:
-        print(key)
+        if print_status:
+            print(key)
         # Download file 
         asp_i = gcs.download_parquet(gcs.uri_to_bucket_and_key(key)[1])
 
@@ -159,6 +159,12 @@ def protein_confidence_agg(clusters,
     # Deduplicate asp because there may be data present across different files 
     asp = asp[["protein_id", "label_seq_id", "pdbx_sifts_xref_db_res", "confidence_pLDDT"]
                    ].drop_duplicates()
+
+    return asp
+    
+def protein_confidence_agg(clusters,
+                           asp):
+   
     
     # Find avg confidence per protein
     avg_conf_protein = pd.pivot_table(asp,
@@ -264,11 +270,20 @@ def find_all_protein_combos_per_cluster(clusters, exclude_unclustered=True):
         n = 1
     else: 
         n = 0
+        
+    # If a cluster has too many items, then just sample. 
+    stack_cluster_counts = np.stack(np.unique(clusters.cluster_label, return_counts=True))
+    big_clusters = stack_cluster_counts[0, stack_cluster_counts[1, :] > 200]
 
     # Loop through each cluster 
     for clust in sorted(clusters.cluster_label.unique()[n:]):
+        # sample if too many items
+        if clust in big_clusters:
+            cluster_subset = clusters[clusters.cluster_label==clust].sample(200)
+        else:
+            cluster_subset = clusters[clusters.cluster_label==clust]
         # Find all possible combinations of proteins within it 
-        clust_combos = pd.DataFrame(itertools.product(clusters[clusters.cluster_label == clust].protein, repeat=2),
+        clust_combos = pd.DataFrame(itertools.product(cluster_subset.protein, repeat=2),
                                     columns=['query_protein', 'target_protein'])
         # Eliminate pairs of the same protein 
         clust_combos = clust_combos[clust_combos.query_protein != clust_combos.target_protein]
@@ -279,21 +294,25 @@ def find_all_protein_combos_per_cluster(clusters, exclude_unclustered=True):
     return all_protein_combos_per_cluster
 
 
-def join_blast(clusters, pairwise_metrics=None):
+def join_blast(clusters, pairwise_metrics, all_protein_combos_per_cluster):
     '''Return clusters with all possible combos and their blast scores.
     pairwise_metrics is the pre-calculated blast file.'''
     
+    # if pairwise_metrics wasn't inputted, download the file. 
     if isinstance(pairwise_metrics, type(None)):
         pairwise_metrics = pd.read_csv(io.StringIO(gcs.download_text('annotations/blast_annotations.csv')))
     
-    all_protein_combos_per_cluster = find_all_protein_combos_per_cluster(clusters)
-     
+    # If all_protein_combos_per_cluster wasn't inputted, calculate from scratch
+    if isinstance(all_protein_combos_per_cluster, type(None)):
+        all_protein_combos_per_cluster = find_all_protein_combos_per_cluster(clusters)
+
+    # Note: all_protein_combos_per_cluster will only show a subset of proteins in large clusters (up to 200 proteins) 
     clusters_w_blast = all_protein_combos_per_cluster.set_index(['query_protein','target_protein'])\
                          .join(pairwise_metrics.set_index(['query_protein','target_protein']), 
                                on=['query_protein', 'target_protein'], 
                                how='left'
                               ).reset_index()
-
+    
     return clusters_w_blast
 
 def cluster_blast (embedding_name, 
@@ -306,27 +325,29 @@ def cluster_blast (embedding_name,
     
     # print('cluster / len left join / nulls from join / all combos / ratio of nulls')
     for clust in clusters_w_blast.cluster.unique():
+        # Note: clusters_w_blast only contains up to 200 sampled proteins if the cluster is bigger than that.
+        # This is fine as we're just aggregating the stats at the cluster level. 
         slc = clusters_w_blast[clusters_w_blast.cluster == clust]
 
         num_combos_in_clust = len(clusters_w_blast[clusters_w_blast.cluster == clust])
         num_null_blast_combos = len(slc[slc.bitscore.isnull()])
-
+        
+        # If bitscore and e-value are missing, fill NA with 0 and 10, respectively. 
+        slc[slc.cluster == clust].fillna({'bitscore':0,
+                                         'evalue':10},
+                                        inplace=True)
+        
+        # The stats by cluster will assume missing values are 0 
         stats_by_cluster.loc[len(stats_by_cluster)] = [embedding_name, model_name, clust,  
                                                        slc.bitscore.mean(), slc.bitscore.std(), slc.evalue.mean(), 
                                                        slc.evalue.std(), num_null_blast_combos / num_combos_in_clust]
-        
+
     return stats_by_cluster
 
 
 def silhouette_n_davies(X, cluster_labels):
     sil_sc = silhouette_score(X, cluster_labels)
     db_sc = davies_bouldin_score(X, cluster_labels)
-#     print(  " | Silhouette "+ str(round(sil_sc, 4))
-#           + " | DB sc "+ str(round(db_sc, 4))
-#           + " | noise " + str(sum(cluster_labels==-1))
-#           + " | k " + str(len(np.unique(cluster_labels)))
-#           + " | max clus size " + str(np.unique(cluster_labels, return_counts=True)[1][1:].max())
-#          )
     
     return sil_sc, db_sc
     
