@@ -94,24 +94,28 @@ def merge_cluster_stats(stats_1, stats_2):
 
 
 def sequence_stats(clusters,
-                  seq_parquet="structure_files/sequences/sequences.parquet"):
+                   sequences=None,
+                   seq_parquet="structure_files/sequences/sequences.parquet"):
     """Get amino acid sequence-related stats for each cluster.
     The input `clusters` is a pd.df that has two columns: 'protein' and 'cluster_label' """
     
-    # Download sequence stats
-    sequences = gcs.download_parquet(seq_parquet)
-    sequences["seq_len"] = sequences["pdbx_seq_one_letter_code"].str.len()
-    
+    # Download sequence stats if not exists
+    if isinstance(sequences, type(None)):
+        sequences = gcs.download_parquet(seq_parquet)
+        sequences["seq_len"] = sequences["pdbx_seq_one_letter_code"].str.len()
+
     # For each protein in sequence, map in the cluster label
-    sequences = clusters.set_index(["protein"])\
-            .join(sequences.set_index(["protein_id"]),
-                  how='outer'
+    cluster_stats = clusters\
+            .merge(sequences,
+                  how='outer',
+                  left_on='protein',
+                  right_on='protein_id'
                  ).reset_index()[['protein', 'cluster_label', 'db_code', 'db_name','pdbx_seq_one_letter_code', 'protein_filename', 'seq_len']]
 
-    sequences=sequences.rename(columns={'index': "protein"})
-    
+    cluster_stats=cluster_stats.rename(columns={'index': "protein"})
+
     # Summarize stats by cluster. For each cluster, show min, max, avg etc of seq length. 
-    cluster_stats = pd.pivot_table(sequences, values="seq_len",
+    cluster_stats = pd.pivot_table(cluster_stats, values="seq_len",
                              index="cluster_label",
                              aggfunc={"seq_len": [len, np.mean, np.std, np.min, np.median, np.max,
                                                  lambda x: list(x)]}).reset_index()
@@ -121,8 +125,8 @@ def sequence_stats(clusters,
                               'amin': "min_seq_len", 
                               'mean': "mean_seq_len", 
                               'median': "median_seq_len", 
-                              'len': "count",
-                              'std': "std_seq_len"})[['cluster_label', "count", 'mean_seq_len', 'min_seq_len',  'median_seq_len', 'max_seq_len', 
+                              'len': "num_proteins",
+                              'std': "std_seq_len"})[['cluster_label', "num_proteins", 'mean_seq_len', 'min_seq_len',  'median_seq_len', 'max_seq_len', 
        'std_seq_len','seq_len_arr']]
     
     return cluster_stats 
@@ -259,7 +263,7 @@ def get_protein_id_for_genename(go_dict=None):
 
     return protein_lookup
 
-def find_all_protein_combos_per_cluster(clusters, exclude_unclustered=True):
+def find_all_protein_combos_per_cluster(clusters, exclude_unclustered=True, max_clus_size=100):
     '''For each cluster, find all combos of proteins. 
     Return a dataframe of all possible query and target protein pairs.'''
     
@@ -273,13 +277,13 @@ def find_all_protein_combos_per_cluster(clusters, exclude_unclustered=True):
         
     # If a cluster has too many items, then just sample. 
     stack_cluster_counts = np.stack(np.unique(clusters.cluster_label, return_counts=True))
-    big_clusters = stack_cluster_counts[0, stack_cluster_counts[1, :] > 200]
+    big_clusters = stack_cluster_counts[0, stack_cluster_counts[1, :] > max_clus_size]
 
     # Loop through each cluster 
     for clust in sorted(clusters.cluster_label.unique()[n:]):
         # sample if too many items
         if clust in big_clusters:
-            cluster_subset = clusters[clusters.cluster_label==clust].sample(200)
+            cluster_subset = clusters[clusters.cluster_label==clust].sample(max_clus_size)
         else:
             cluster_subset = clusters[clusters.cluster_label==clust]
         # Find all possible combinations of proteins within it 
@@ -315,17 +319,15 @@ def join_blast(clusters, pairwise_metrics, all_protein_combos_per_cluster):
     
     return clusters_w_blast
 
-def cluster_blast (embedding_name, 
-                   model_name, 
-                   clusters_w_blast):
+def cluster_blast (clusters_w_blast):
     '''Summarize blats stats per cluster '''
-    stats_by_cluster = pd.DataFrame(columns=['embedding', 'model', 'cluster', 
+    stats_by_cluster = pd.DataFrame(columns=['cluster', 
                                              'bitscore_mean', 'bitscore_std_dev', 
                                              'evalue_mean', 'evalue_std_dev', 'ratio_pairs_wo_blast'])
     
-    # print('cluster / len left join / nulls from join / all combos / ratio of nulls')
+    # Loop through each cluster and calculate cluster-level summary of BLAST
     for clust in clusters_w_blast.cluster.unique():
-        # Note: clusters_w_blast only contains up to 200 sampled proteins if the cluster is bigger than that.
+        # Note: clusters_w_blast only contains up to max sampled proteins if the cluster is bigger than that.
         # This is fine as we're just aggregating the stats at the cluster level. 
         slc = clusters_w_blast[clusters_w_blast.cluster == clust]
 
@@ -333,12 +335,12 @@ def cluster_blast (embedding_name,
         num_null_blast_combos = len(slc[slc.bitscore.isnull()])
         
         # If bitscore and e-value are missing, fill NA with 0 and 10, respectively. 
-        slc[slc.cluster == clust].fillna({'bitscore':0,
+        slc[slc.cluster==clust].fillna({'bitscore':0,
                                          'evalue':10},
                                         inplace=True)
         
         # The stats by cluster will assume missing values are 0 
-        stats_by_cluster.loc[len(stats_by_cluster)] = [embedding_name, model_name, clust,  
+        stats_by_cluster.loc[len(stats_by_cluster)] = [clust,  
                                                        slc.bitscore.mean(), slc.bitscore.std(), slc.evalue.mean(), 
                                                        slc.evalue.std(), num_null_blast_combos / num_combos_in_clust]
 
