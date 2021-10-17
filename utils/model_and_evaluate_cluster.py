@@ -12,6 +12,11 @@ import itertools
 import numpy as np
 import pandas as pd
 
+import hdbscan
+from sklearn.cluster import DBSCAN
+from sklearn.metrics import davies_bouldin_score, silhouette_samples, silhouette_score
+
+
 # Ask how to work with this one 
 sys.path.append(f"{os.path.dirname(__file__)}/")
 
@@ -19,6 +24,65 @@ import gcs_utils as gcs
 
 import urllib.parse
 import urllib.request
+
+    
+def deepfold_file_processor(key):
+    """Download and parse a DeepFold embedding file. """
+    
+    X = np.empty((0,398), dtype=float)
+    protein = np.empty((0,1), dtype=str)
+    
+    # Download and split the str into list 
+    df_emb_decode = gcs.download_text(key).split(",")    
+    
+    # If any embedding hasn't been generated, then put it into missing 
+    missing_protein=[]
+
+    # The first two items are metadata. Start on index 2. 
+    i = 2
+    while i < len(df_emb_decode):
+        pair = df_emb_decode[i].rsplit('\n', 1)
+        
+        # parse feature vec. Remove double quotes and brackets. Split and cast as float.
+        feature_vec = np.array(pair[0][2:-2].split()).astype(float)
+        protein_id = pair[1]
+
+        # Only take the vector if we have a feature vec of length 398 
+        if len(feature_vec) != 398:
+            missing_protein.append(protein_id)
+            i+=1
+            continue
+
+        X = np.concatenate((X, feature_vec.reshape(1,398)))
+        protein = np.append(protein, protein_id)
+        i+=1
+    
+    return X, protein, missing_protein 
+
+def import_deepfold_embeddings(keys):
+    missing_full=np.empty((0,1), dtype=str)
+    X_hold = [] 
+    protein_name_full=np.empty((0,1), dtype=str)
+    z=0
+
+    for key in keys[1:]:
+        # I actually only need the file path once in the right storage.
+        key = gcs.uri_to_bucket_and_key(key)[1]
+
+        # parse the file 
+        X, protein, missing_protein = deepfold_file_processor(key)
+
+        # Put it into list 
+        X_hold.append(X)
+        protein_name_full = np.append(protein_name_full, protein)
+        missing_full = np.append(missing_full, missing_protein)
+        print(key)
+        
+
+    # Stack all the X 
+    X_full = np.vstack(X_hold)
+    
+    return X_full, missing_full, protein_name_full 
 
     
 def merge_cluster_stats(stats_1, stats_2):
@@ -252,3 +316,136 @@ def cluster_blast (embedding_name,
                                                        slc.evalue.std(), num_null_blast_combos / num_combos_in_clust]
         
     return stats_by_cluster
+
+
+def silhouette_n_davies(X, cluster_labels):
+    sil_sc = silhouette_score(X, cluster_labels)
+    db_sc = davies_bouldin_score(X, cluster_labels)
+#     print(  " | Silhouette "+ str(round(sil_sc, 4))
+#           + " | DB sc "+ str(round(db_sc, 4))
+#           + " | noise " + str(sum(cluster_labels==-1))
+#           + " | k " + str(len(np.unique(cluster_labels)))
+#           + " | max clus size " + str(np.unique(cluster_labels, return_counts=True)[1][1:].max())
+#          )
+    
+    return sil_sc, db_sc
+    
+
+def dbscan_gridsearch(X, range_eps, range_min_samples, metric='euclidean'):
+    """For a set of values for `eps` and `range_min_samples`, run grid search in DBSCAN."""
+    
+    search_results = pd.DataFrame(columns=["eps", "min_samples", "metric", 
+                                           "Num. Clusters", "Noise Size", "Max Cluster Size",
+                                           "DB_sc", "Silhouette_sc",
+                                           "DB_sc excl. noise", "Silhouette_sc excl. noise"])
+    
+    num_proteins = len(X)
+    
+    
+    # Loop through grid and generate clustering models 
+    for i in range_eps:
+        for j in range_min_samples:
+            print(i, j) 
+            
+            # Run model 
+            clustering = DBSCAN(eps=i, 
+                                min_samples=j,
+                                metric=metric).fit(X)
+            cluster_labels = clustering.labels_
+            noise_size = sum(cluster_labels==-1)
+            
+            # If everything is a noise or there's only one cluster, don't bother calculating scores. 
+            if len(np.unique(cluster_labels))<=2:
+                sil_sc, db_sc, sil_sc_nonoise, db_sc_nonoise = None
+                
+            # Otherwise, calculate scores and save the results. 
+            else:
+                # Find cluster metrics 
+                sil_sc, db_sc = silhouette_n_davies(X, cluster_labels)
+                
+                # Find cluster metrics after excluding noise (or unclustered)
+                sil_sc_nonoise, db_sc_nonoise = silhouette_n_davies(X[cluster_labels!=-1], cluster_labels[cluster_labels!=-1])
+                
+            # Append results
+            search_results = search_results.append({"eps": i, 
+                                   "min_samples": j,
+                                   "metric": metric, 
+                                   "Num. Clusters": len(np.unique(cluster_labels))-1, 
+                                   "Noise Size": noise_size, 
+                                   "Max Cluster Size": np.unique(cluster_labels, return_counts=True)[1][1:].max(),
+                                   "DB_sc": db_sc, 
+                                   "Silhouette_sc": sil_sc,
+                                   "DB_sc excl. noise": db_sc_nonoise,
+                                   "Silhouette_sc excl. noise": sil_sc_nonoise 
+                                  }, ignore_index=True)
+
+    return search_results.sort_values(by="Noise Size")
+
+
+
+def hdbscan_gridsearch(X, 
+                       min_cluster_sizes,
+                       min_samples,
+                       cluster_selection_epsilons,
+                       alphas=[1.0],
+                       metrics=['cosine']):
+    """grid search in HDBSCAN."""
+    
+    search_results = pd.DataFrame(columns=["min_cluster_size", "min_sample", "cluster_selection_epsilon", "alpha", "metric",
+                                           "Num. Clusters", "Noise Size", "Max Cluster Size",
+                                           "DB_sc", "Silhouette_sc",
+                                           "DB_sc excl. noise", "Silhouette_sc excl. noise"])
+    
+    num_proteins = len(X)
+    params = list(itertools.product(min_cluster_sizes,
+                                   min_samples,
+                                   cluster_selection_epsilons,
+                                   alphas,
+                                   metrics))
+    
+    # Loop through grid and generate clustering models 
+    for param in params:
+        min_cluster_size, min_sample, cluster_selection_epsilon, alpha, metric = param
+
+        # Run model 
+        clustering = hdbscan.HDBSCAN(algorithm='generic', 
+                                     alpha=alpha, 
+                                     approx_min_span_tree=True,
+                                     gen_min_span_tree=False, 
+                                     leaf_size=40, 
+                                     metric=metric, 
+                                     min_cluster_size=min_cluster_size, 
+                                     min_samples=min_sample, 
+                                     p=None)
+        clustering.fit(X)
+        cluster_labels = clustering.labels_
+        noise_size = sum(cluster_labels==-1)
+
+        # If everything is a noise or there's only one cluster, don't bother calculating scores. 
+        if len(np.unique(cluster_labels))<=2:
+            sil_sc, db_sc, sil_sc_nonoise, db_sc_nonoise = None
+        # Otherwise, calculate scores and save the results. 
+        else:
+            # Find cluster metrics 
+            sil_sc, db_sc = silhouette_n_davies(X, cluster_labels)
+
+            # Find cluster metrics after excluding noise (or unclustered)
+            sil_sc_nonoise, db_sc_nonoise = silhouette_n_davies(X[cluster_labels!=-1], cluster_labels[cluster_labels!=-1])
+
+            
+        # Append results
+        search_results = search_results.append({"min_cluster_size": min_cluster_size, 
+                                                "min_sample": min_sample, 
+                                                "cluster_selection_epsilon": cluster_selection_epsilon,
+                                                "alpha": alpha,
+                                                "metric": metric,
+                               "Num. Clusters": len(np.unique(cluster_labels))-1, 
+                               "Noise Size": noise_size, 
+                               "Max Cluster Size": np.unique(cluster_labels, return_counts=True)[1][1:].max(),
+                               "DB_sc": db_sc, 
+                               "Silhouette_sc": sil_sc,
+                               "DB_sc excl. noise": db_sc_nonoise,
+                               "Silhouette_sc excl. noise": sil_sc_nonoise 
+                              }, ignore_index=True)
+
+    return search_results.sort_values(by="Noise Size")
