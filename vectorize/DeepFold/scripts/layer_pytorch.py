@@ -10,6 +10,8 @@ import lasagne
 import theano.tensor as T
 import numpy as np
 import theano
+import torch
+
 
 class FeatureProjectionLayer(lasagne.layers.Layer):
     def __init__(self, incoming, projection_level, **kwargs):
@@ -19,8 +21,8 @@ class FeatureProjectionLayer(lasagne.layers.Layer):
 
     # used to get the 1/2, 0, and 2 power?
     def get_output_for(self, input, **kwargs):
-        res = [(input ** (- i * 2 - 2)).dimshuffle(0, 'x', 1, 2) for i in range(self.projection_level)]
-        res = T.concatenate(res, axis=1)
+        res = [torch.unsqueeze(torch.pow(input, (- i * 2 - 2)), 1) for i in range(self.projection_level)]
+        res = torch.cat(res, dim=1)
         # return T.tensordot(res, self.W, [[1], [0]]).dimshuffle(0, 'x', 1, 2)
         return res
 
