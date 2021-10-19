@@ -23,6 +23,11 @@ def get_distance_matrix(pdb_path):
 
 def get_distance_matrix_from_structure(pdb_structure):
     residue_positions = get_residue_positions(pdb_structure)
+    print(residue_positions.shape)
+    return get_distance_matrix_from_positions(residue_positions)
+
+
+def get_distance_matrix_from_positions(residue_positions):
     pdb_dist_mat = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(residue_positions, 'euclidean'))
     pdb_dist_mat[numpy.isnan(pdb_dist_mat)] = float('inf')
     return pdb_dist_mat
