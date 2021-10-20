@@ -23,7 +23,6 @@ def get_distance_matrix(pdb_path):
 
 def get_distance_matrix_from_structure(pdb_structure):
     residue_positions = get_residue_positions(pdb_structure)
-    print(residue_positions.shape)
     return get_distance_matrix_from_positions(residue_positions)
 
 
