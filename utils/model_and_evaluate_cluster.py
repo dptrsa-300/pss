@@ -16,6 +16,8 @@ import hdbscan
 from sklearn.cluster import DBSCAN
 from sklearn.metrics import davies_bouldin_score, silhouette_samples, silhouette_score
 
+from google.cloud import storage
+from google.cloud.storage import Blob
 
 # Ask how to work with this one 
 sys.path.append(f"{os.path.dirname(__file__)}/")
@@ -472,3 +474,24 @@ def hdbscan_gridsearch(X,
                               }, ignore_index=True)
 
     return search_results.sort_values(by="Noise Size")
+
+
+def get_tmalign_for_pairs(pairs, get_latest_statsfile=True):
+    '''
+    Accepts a (2, n) array of protein pairs (full filenames in form query_protein, target_protein). Optional bool to download the current
+    version of pairwise_evaluation_metrics.parquet from GCS to pwd (requires "PSS GCS Storage Key.json" in pwd) before getting tmalign scores.
+    If False, uses pairwise_evaluation_metrics.parquet from pwd.
+    
+    Returns a (7, n) pandas dataframe of input protein pairs and their associated TM-Align stats. NaN stats values for pairs not found in 
+    pairwise_evaluation_metrics.parquet.
+    '''
+    if get_latest_statsfile is True:
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "/home/jupyter/pss/PSS GCS Storage Key.json"
+        storage_client = storage.Client()
+        blob = storage_client.get_bucket('capstone-fall21-protein').get_blob('annotations/pairwise_evaluation_metrics.parquet')
+        blob.download_to_filename('pairwise_evaluation_metrics.parquet')
+    
+    stats = pd.read_parquet('pairwise_evaluation_metrics.parquet')
+    stats.set_index(['query_protein', 'target_protein'], inplace=True)
+    
+    return pd.DataFrame(pairs, columns=['query_protein', 'target_protein']).join(stats, on=['query_protein', 'target_protein'], how='left')
