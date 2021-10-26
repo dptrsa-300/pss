@@ -8,7 +8,7 @@ import plotly.express as px
 
 from app import app
 
-use_random_baseline = False
+use_random_baseline = True
 
 if use_random_baseline:
     cluster_csv_path = "/Users/linda/Downloads/clusters_random_control_clusters.csv"
@@ -19,22 +19,15 @@ if use_random_baseline:
 else:
     cluster_parquet_path = "/Users/linda/Downloads/all_proteins_with_confidence.parquet"
     df = pd.read_parquet(cluster_parquet_path)
-
     cluster_stats_path = "/Users/linda/Downloads/samples_cluster_stats2.parquet"
-    cluster_df = pd.read_parquet(cluster_stats_path)
-    cluster_df = cluster_df.reset_index()
-    cluster_df = cluster_df.rename(columns={'cluster_label': 'Cluster Label'})
-
-    table_path = "/Users/linda/Downloads/pairwise_proteins.parquet"
-    table_df = pd.read_parquet(table_path)
-    table_df = table_df.rename(columns={'target_protein': 'result_protein', 'query_protein': 'target_protein'})
+    cluster_df = pd.read_parquet(cluster_parquet_path)
+    cluster_df = df.rename(columns={'cluster_label': 'Cluster Label'})
 
 df = df.astype({'Cluster Label': 'int32'})
 
 protein_indicators = df['protein'].unique()
 cluster_indicators = df['Cluster Label'].unique()
-table_columns = [c for c in ['target_protein', 'result_protein', 'aligned_length', 'rmsd', 'tmalign_score'] if c in table_df.columns]
-#table_columns = [c for c in ['aligned_length', 'rmsd', 'tmalign_score'] if c in table_df.columns]
+table_columns = [c for c in ['protein', 'Cluster Label', 'X', 'Y', 'Z'] if c in df.columns]
 
 all_colors = px.colors.qualitative.Plotly
 num_colors = len(all_colors)
@@ -112,7 +105,7 @@ layout = html.Div([
             dash_table.DataTable(
                 id='results-table',
                 columns=[{"name": i, "id": i} for i in table_columns],
-                data=table_df.head(100).to_dict('records'),
+                data=df.to_dict('records'),
 				sort_action='native',
 				filter_action='native',
 				page_action="native",
@@ -195,23 +188,16 @@ def update_graph(protein, cluster_label,
 
     #dff = df.iloc[::100, :]
     dff = df
-    cluster_dff = cluster_df
-    table_dff = table_df
 
 
     disable_protein_filter = False
     disable_cluster_filter = False
     if protein is not None and len(protein):
-        cluster_id = dff[dff['protein'].isin(protein)]['Cluster Label'].unique()
-        dff = dff[dff['Cluster Label'].isin(cluster_id)]
-        table_dff = table_dff[table_dff['target_protein'].isin(protein) & table_dff['result_protein'].isin(dff['protein'].unique())]
-        #table_dff = table_dff[table_dff['target_protein'].isin(protein)]
+        dff = dff[dff['protein'].isin(protein)]
         disable_cluster_filter = True
     if cluster_label is not None and isinstance(cluster_label, list) and len(cluster_label):
         dff = dff[dff['Cluster Label'].isin(cluster_label)]
         disable_protein_filter = True
-    cluster_dff = cluster_dff[cluster_dff['Cluster Label'].isin(dff['Cluster Label'].unique())]
-
 
     # Adjust dropdown menus
     """
@@ -227,33 +213,28 @@ def update_graph(protein, cluster_label,
     cluster_options = [{'label': i, 'value': i} for i in cluster_indicators]
     """
 
-
-    scatter_dff = dff #dff.sample(1000)
-    color = scatter_dff['Cluster Label']
+    color = dff['Cluster Label']
     if cluster_view:
-        color = scatter_dff['Cluster Label'].astype(str)
+        color = dff['Cluster Label'].astype(str)
     elif confidence_view:
         # TODO Set to confidence value!
-        color = scatter_dff['confidence']
+        color = dff['X']
     elif functional_view:
         # TODO Set to functional value!
-        color = scatter_dff['Y']
+        color = dff['Y']
 
-    scatter_fig = px.scatter_3d(scatter_dff, x=scatter_dff['X'], y=scatter_dff['Y'], z=scatter_dff['Z'],
-              color=color, hover_data=['protein', 'length'], color_discrete_map=color_discrete_map)
+    scatter_fig = px.scatter_3d(dff, x=dff['X'], y=dff['Y'], z=dff['Z'],
+              color=color, hover_data=['protein'], color_discrete_map=color_discrete_map)
 
-    """
     cluster_groups = dff.groupby(['Cluster Label'])
 
     points_count = cluster_groups.count()
     points_count = points_count.rename(columns={'protein': 'Count'})
     points_count[['X', 'Y', 'Z']] = cluster_groups[['X', 'Y', 'Z']].mean()
     points_count.reset_index(inplace=True)
-    """
 
-    num_hist = px.histogram(
-	    x=cluster_dff['count'],
-	    color=cluster_dff['Cluster Label'].astype(str),
+    num_hist = px.histogram(x=points_count['Count'],
+	    color=points_count['Cluster Label'].astype(str),
         color_discrete_map=color_discrete_map,
         )
     """
@@ -265,8 +246,8 @@ def update_graph(protein, cluster_label,
 
     # TODO Set to Protein Sequence Length!
     length_hist = px.histogram(
-	    x=cluster_dff['median_seq_len'],
-	    color=cluster_dff['Cluster Label'].astype(str),
+	    x=dff['X'],
+	    color=dff['Cluster Label'].astype(str),
         color_discrete_map=color_discrete_map,
        )
 
@@ -274,7 +255,7 @@ def update_graph(protein, cluster_label,
             disable_protein_filter,
             disable_cluster_filter,
 	        scatter_fig, 
-	        table_dff.to_dict('records'),
+	        dff.to_dict('records'),
 			num_hist,
 			length_hist,
             cluster_view, 
