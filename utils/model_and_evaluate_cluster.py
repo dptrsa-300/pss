@@ -263,9 +263,10 @@ def get_protein_id_for_genename(go_dict=None):
 
     return protein_lookup
 
-def find_all_protein_combos_per_cluster(clusters, exclude_unclustered=True, max_clus_size=100):
+def find_all_protein_combos_per_cluster(clusters, exclude_unclustered=True, max_clus_size=100, rand_seed=1710):
     '''For each cluster, find all combos of proteins. 
     Return a dataframe of all possible query and target protein pairs.'''
+    np.random.seed(rand_seed)
     
     # Find all combinations of proteins WITHIN clusters
     all_protein_combos_per_cluster = pd.DataFrame()
@@ -277,10 +278,15 @@ def find_all_protein_combos_per_cluster(clusters, exclude_unclustered=True, max_
         
     # If a cluster has too many items, then just sample. 
     stack_cluster_counts = np.stack(np.unique(clusters.cluster_label, return_counts=True))
+        # array([[   -1,     0,     1, ...,  1603,  1604,  1605],
+        # [12966,     2,     5, ...,     2,     2,     2]])
+    
     big_clusters = stack_cluster_counts[0, stack_cluster_counts[1, :] > max_clus_size]
+        # Looks at the counts only.
+        # Big cluster at this point can include the noise.
 
     # Loop through each cluster 
-    for clust in sorted(clusters.cluster_label.unique()[n:]):
+    for clust in sorted(clusters.cluster_label.unique())[n:]:
         # sample if too many items
         if clust in big_clusters:
             cluster_subset = clusters[clusters.cluster_label==clust].sample(max_clus_size)
