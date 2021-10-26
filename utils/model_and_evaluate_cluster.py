@@ -12,18 +12,24 @@ import itertools
 import numpy as np
 import pandas as pd
 
-import hdbscan
+#from sklearn.cluster import HDBSCAN
 from sklearn.cluster import DBSCAN
 from sklearn.metrics import davies_bouldin_score, silhouette_samples, silhouette_score
 
+from google.cloud import storage
+from google.cloud.storage import Blob
 
 # Ask how to work with this one 
 sys.path.append(f"{os.path.dirname(__file__)}/")
 
-import gcs_utils as gcs
+#import gcs_utils as gcs
 
 import urllib.parse
 import urllib.request
+
+import matplotlib
+from matplotlib.pyplot import figure
+from matplotlib import pyplot
 
     
 def deepfold_file_processor(key):
@@ -479,3 +485,141 @@ def hdbscan_gridsearch(X,
                               }, ignore_index=True)
 
     return search_results.sort_values(by="Noise Size")
+
+
+def get_tmalign_for_pairs(pairs, get_latest_statsfile=True):
+    '''
+    Accepts a (2, n) array of protein pairs (full filenames in form query_protein, target_protein). Optional bool to download the current
+    version of pairwise_evaluation_metrics.parquet from GCS to pwd (requires "PSS GCS Storage Key.json" in pwd) before getting tmalign scores.
+    If False, uses pairwise_evaluation_metrics.parquet from pwd.
+    
+    Returns a (7, n) pandas dataframe of input protein pairs and their associated TM-Align stats. NaN stats values for pairs not found in 
+    pairwise_evaluation_metrics.parquet.
+    '''
+    if get_latest_statsfile is True:
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "/home/jupyter/pss/PSS GCS Storage Key.json"
+        storage_client = storage.Client()
+        blob = storage_client.get_bucket('capstone-fall21-protein').get_blob('annotations/pairwise_evaluation_metrics.parquet')
+        blob.download_to_filename('pairwise_evaluation_metrics.parquet')
+    
+    stats = pd.read_parquet('pairwise_evaluation_metrics.parquet')
+    stats.set_index(['query_protein', 'target_protein'], inplace=True)
+    
+    return pd.DataFrame(pairs, columns=['query_protein', 'target_protein']).join(stats, on=['query_protein', 'target_protein'], how='left')
+
+
+def tmalign_hist(metrics, num_results=10, show_control=False, bin_size=100, version='top_score', select_clusters=None, cmap='viridis', name=''):
+    '''
+    Arguments:
+    - metrics: A Pandas DataFrame in the form pairwise_evaluation_metrics.parquet + a "cluster" column.
+    
+    Optional Arguments:
+    - num_results: Default 10. Number of clusters to plot. Ignored if version is set to "select".
+    - show_control: Default False. Whether to plot tmalign scores from the random control dataset.
+    - bin_size: Default 100. Number of bins on historgram.
+    - version: Default "top_score". Options also include "top_pair_count", "random" and "select" (if passed, argument select_clusters is required).
+    - select_clusters: A list of integer cluster labels. Required if version is set to "select".
+    - cmap: Default "viridis". The name of the Matplotlib colormap to apply to the plot.
+    - name: Default "". Name of experiment, ex.: "SEQVEC + HDBSCAN".
+    
+    Output:
+    - A Pyplot histogram to stdout.
+    - List of cluster labels shown on plot.
+    '''
+    subtitle = ''
+    figure(figsize=(10, 6))
+    pyplot.style.use('default')
+
+    if version == 'top_score':
+        interesting_clusters = metrics[['cluster', 'tmalign_score']].groupby(['cluster']).mean(['tmalign_score']).reset_index().sort_values(
+        by=['tmalign_score'], ascending=False)[:num_results].cluster.values
+        subtitle = f'\nTop {num_results} Clusters by Score'
+    elif version == 'top_pair_count':
+        interesting_clusters = metrics[['cluster', 'target_protein']].groupby(['cluster']).count().reset_index().sort_values(by=['target_protein'], ascending=False)[:num_results].cluster.values
+        subtitle = f'\nTop {num_results} Clusters by Num. of Protein Pairs'
+    elif version == 'random':
+        interesting_clusters = metrics[['cluster', 'target_protein']].groupby(['cluster']).count().reset_index().sample(num_results).cluster.values
+        subtitle = f'\nRandom {num_results} Clusters'
+    elif version == 'select':
+        interesting_clusters = select_clusters
+        subtitle = f'\nSelect {len(interesting_clusters)} Clusters'
+    else:
+        return None
+
+    ssize = int(len(metrics[metrics.cluster.isin(interesting_clusters)])*0.5)
+    colors = pyplot.get_cmap(cmap, len(interesting_clusters))
+    
+    interesting_clusters.sort()
+    
+    if name != "":
+        name = ' (' + name + ')'
+    
+    for i, cluster in enumerate(interesting_clusters):
+        pyplot.hist(metrics[metrics.cluster == cluster].tmalign_score, bins=bin_size, alpha=0.5, label=f'Cluster {cluster}', range=(0,1), color=colors(i))
+
+    if show_control:
+        sample_all = pd.read_parquet('/home/jupyter/pss/tmalign_rmsd_full.parquet')
+        pyplot.hist(sample_all.sample(ssize).tm_score_norm_ref_p1.astype(float), bins=bin_size, alpha=0.5, label='Control', range=(0,1))
+        pyplot.title('TM-Align Score Distributions: Control vs Experiment' + name + subtitle)
+    else:
+        pyplot.title('TM-Align Score Distributions' + name + subtitle)
+
+    p = pyplot.ylim()[1] * 0.75
+    pyplot.legend(loc='upper left')
+    pyplot.xlabel('TM-Align Score')
+    pyplot.ylabel('Num. Protein Pairs')
+    pyplot.vlines(0.5, 0, pyplot.ylim()[1], linestyles='dashed', colors='k')
+    pyplot.text(0.51, p, 'Similarity Significance\nThreshold')
+    pyplot.vlines(0.17, 0, pyplot.ylim()[1], linestyles='dashed', colors='k')
+    pyplot.text(0.18, p, 'Random Noise')
+    pyplot.show();
+    
+    return interesting_clusters
+
+
+def tmalign_scatter(metrics, num_results=10, version='top_score_tmalign', select_clusters=None, cmap='viridis', name=""):
+    '''
+    Arguments:
+    - metrics: A Pandas DataFrame in the form pairwise_evaluation_metrics.parquet + a "cluster" column.
+    
+    Optional Arguments:
+    - num_results: Default 10. Number of clusters to plot. Ignored if version is set to "select".
+    - version: Default "top_score_tmalign". Options also include "top_score_rmsd", "top_pair_count", "random" and "select" (if passed, argument select_clusters is required).
+               Note: Only the equivalent of num_results = len(metrics.cluster.unique()) is currently implemented.
+    - select_clusters: A list of integer cluster labels. Required if version is set to "select".
+    - cmap: Default "viridis". The name of the Matplotlib colormap to apply to the plot.
+    - name: Default "". Name of experiment, ex.: "SEQVEC + HDBSCAN".
+    
+    Output:
+    - A Pyplot scatter plot to stdout.
+    - List of cluster labels shown on plot.
+    '''
+    subtitle = ''
+    figure(figsize=(10, 6))
+    pyplot.style.use('default')
+    
+    subtitle = f'\nSelect {len(metrics.cluster.unique())} Clusters'
+    focus = metrics.cluster.unique()
+    focus.sort()
+    colors = pyplot.get_cmap(cmap, len(focus))
+    #colors = list(mcolors.cnames.keys())[::-1]
+    
+    if name != "":
+        name = ' (' + name + ')'
+    
+    for i, cluster in enumerate(focus):
+        t = metrics[metrics.cluster == cluster]
+        pyplot.scatter(x=t.tmalign_score, y=t.rmsd, alpha=0.5, label=f'Cluster {cluster}', color=colors(i))
+
+    pyplot.legend(loc='upper left')
+    pyplot.xlim(left=0, right=1)
+    pyplot.ylim(bottom=0, top=10)
+    pyplot.vlines(0.5, 0, 3, linestyles='dashed', colors='k')
+    pyplot.hlines(3, 0.5, 1, linestyles='dashed', colors='k')
+    pyplot.text(0.5, 3.2, 'Strong Similarity Zone')
+    pyplot.xlabel('TM-Align Score')
+    pyplot.ylabel('RMSD')
+    pyplot.title('TM-Align Score vs RMSD' + name + subtitle)
+    pyplot.show();
+    
+    return focus

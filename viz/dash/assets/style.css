@@ -255,6 +255,7 @@ input[type="button"].button-primary:focus {
   border-color: #1EAEDB; }
 button:disabled,
 button[disabled]{
+  cursor: not-allowed;
   border: 1px solid #191;
   color: #191;
 }
