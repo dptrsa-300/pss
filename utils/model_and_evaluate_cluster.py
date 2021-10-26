@@ -65,7 +65,7 @@ def import_deepfold_embeddings(keys):
     protein_name_full=np.empty((0,1), dtype=str)
     z=0
 
-    for key in keys[1:]:
+    for key in keys:
         # I actually only need the file path once in the right storage.
         key = gcs.uri_to_bucket_and_key(key)[1]
 
@@ -379,7 +379,7 @@ def dbscan_gridsearch(X, range_eps, range_min_samples, metric='euclidean'):
             
             # If everything is a noise or there's only one cluster, don't bother calculating scores. 
             if len(np.unique(cluster_labels))<=2:
-                sil_sc, db_sc, sil_sc_nonoise, db_sc_nonoise = None
+                sil_sc = db_sc = sil_sc_nonoise = db_sc_nonoise = max_clus_size = None
                 
             # Otherwise, calculate scores and save the results. 
             else:
@@ -388,6 +388,7 @@ def dbscan_gridsearch(X, range_eps, range_min_samples, metric='euclidean'):
                 
                 # Find cluster metrics after excluding noise (or unclustered)
                 sil_sc_nonoise, db_sc_nonoise = silhouette_n_davies(X[cluster_labels!=-1], cluster_labels[cluster_labels!=-1])
+                max_clus_size = np.unique(cluster_labels, return_counts=True)[1][1:].max()
                 
             # Append results
             search_results = search_results.append({"eps": i, 
@@ -395,7 +396,7 @@ def dbscan_gridsearch(X, range_eps, range_min_samples, metric='euclidean'):
                                    "metric": metric, 
                                    "Num. Clusters": len(np.unique(cluster_labels))-1, 
                                    "Noise Size": noise_size, 
-                                   "Max Cluster Size": np.unique(cluster_labels, return_counts=True)[1][1:].max(),
+                                   "Max Cluster Size": max_clus_size,
                                    "DB_sc": db_sc, 
                                    "Silhouette_sc": sil_sc,
                                    "DB_sc excl. noise": db_sc_nonoise,
