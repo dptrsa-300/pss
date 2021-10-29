@@ -22,7 +22,7 @@ from google.cloud.storage import Blob
 # Ask how to work with this one 
 sys.path.append(f"{os.path.dirname(__file__)}/")
 
-#import gcs_utils as gcs
+import gcs_utils as gcs
 
 import urllib.parse
 import urllib.request
@@ -623,3 +623,20 @@ def tmalign_scatter(metrics, num_results=10, version='top_score_tmalign', select
     pyplot.show();
     
     return focus
+
+
+def model_overview(model):
+    labels = np.unique(model.labels_, return_counts=True)
+    noise_ct = labels[1][0]
+    max_cluster_size = labels[1][1:].max()
+    num_proteins=model.labels_.shape[0]
+
+
+    return {"Model": str(model),
+            "Length of embedding":len(model.weighted_cluster_centroid(0)),
+            "Number of clusters categories (incl. noise)": np.unique(model.labels_, return_counts=True)[1].shape[0],
+            "Number of clusters (excl. noise)": np.unique(model.labels_, return_counts=True)[1].shape[0]-1,
+            "Noise": noise_ct,
+            "Largest non-noise cluster": max_cluster_size,
+            "Noise as % of total":  noise_ct/num_proteins,
+            "Noise and largest cluster as % of total": (noise_ct+max_cluster_size)/num_proteins}
