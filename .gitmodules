@@ -1,0 +1,3 @@
+[submodule "vectorize/CurveNet"]
+	path = vectorize/CurveNet
+	url = git@github.com:skylerroh/CurveNet.git
