@@ -12,7 +12,7 @@ import itertools
 import numpy as np
 import pandas as pd
 
-#from sklearn.cluster import HDBSCAN
+import hdbscan
 from sklearn.cluster import DBSCAN
 from sklearn.metrics import davies_bouldin_score, silhouette_samples, silhouette_score
 
@@ -625,18 +625,51 @@ def tmalign_scatter(metrics, num_results=10, version='top_score_tmalign', select
     return focus
 
 
-def model_overview(model):
+def model_overview(model, X):
+    """
+    Given a clustering model and the original embeddings, generate stats related to the model.
+    """
+    
+    labels_all = model.labels_
     labels = np.unique(model.labels_, return_counts=True)
     noise_ct = labels[1][0]
     max_cluster_size = labels[1][1:].max()
     num_proteins=model.labels_.shape[0]
+    sil_sc_nonoise, db_sc_nonoise = silhouette_n_davies(X[labels_all!=-1], labels_all[labels_all!=-1])
 
 
-    return {"Model": str(model),
-            "Length of embedding":len(model.weighted_cluster_centroid(0)),
+    result= {"Model": str(model),
             "Number of clusters categories (incl. noise)": np.unique(model.labels_, return_counts=True)[1].shape[0],
             "Number of clusters (excl. noise)": np.unique(model.labels_, return_counts=True)[1].shape[0]-1,
             "Noise": noise_ct,
             "Largest non-noise cluster": max_cluster_size,
             "Noise as % of total":  noise_ct/num_proteins,
-            "Noise and largest cluster as % of total": (noise_ct+max_cluster_size)/num_proteins}
+            "Noise and largest cluster as % of total": (noise_ct+max_cluster_size)/num_proteins,
+            "Silhouette score": sil_sc_nonoise,
+            "DB score": db_sc_nonoise
+           }
+    
+    try: 
+        result["Length of embedding"] = len(model.weighted_cluster_centroid(0))
+    except:
+        pass
+    
+    return result 
+            
+def map_gomf_to_cluster(clusters, alphafold_protein_to_gomf):
+    """
+    Given clusters and protein-to-GOMF mapping, 
+    Show all proteins in clusters with GOMF and parent GOMF. 
+    Left join to clusters rather than inner or outer join, because 
+    for some embeddings (e.g., DeepFold), not all the proteins will have an
+    embedding generated and therefore will not have been in the clustering model.
+    """
+                
+    clusters_with_gomf = clusters.merge(alphafold_protein_to_gomf,
+                   how='left',   # In case clusters excludes the proteins that did not have any embeddings
+                   left_on='protein',
+                   right_on='protein_id'
+                  )
+
+    return clusters_with_gomf
+    
