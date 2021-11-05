@@ -735,21 +735,21 @@ def funsim(all_protein_combos_per_cluster, goa=None):
     all_protein_combos_per_cluster['protein_B'] = all_protein_combos_per_cluster[
         ['query_protein','target_protein']].max(axis=1)
 
-    all_protein_combos_per_cluster_dedupe = all_protein_combos_per_cluster[
+    protein_pair_funsim = all_protein_combos_per_cluster[
         ['protein_A', 'protein_B', 'cluster']].drop_duplicates()
     
     
     ##################
     # Remove duplicate pairs, as this metric is symmetric.
     
-    all_protein_combos_per_cluster_dedupe['funsim'] = \
-        all_protein_combos_per_cluster_dedupe.apply(
+    protein_pair_funsim['funsim'] = \
+        protein_pair_funsim.apply(
             lambda x: jaccard_sim_protein_go(x['protein_A'], x['protein_B'], goa_by_protein, IC_t), 
             axis=1
         )
 
     # Pivot by cluster 
-    cluster_funsim = all_protein_combos_per_cluster_dedupe.pivot_table(
+    cluster_funsim = protein_pair_funsim.pivot_table(
         index="cluster",
         values="funsim",
         aggfunc=[len, "count", np.mean]
@@ -757,7 +757,7 @@ def funsim(all_protein_combos_per_cluster, goa=None):
     cluster_funsim.columns = ["num_pairs", "num_pairs_with_funsim", "funsim"]
     cluster_funsim["perc_pairs_w_funsim"] = cluster_funsim.num_pairs_with_funsim/cluster_funsim.num_pairs
     
-    return cluster_funsim
+    return cluster_funsim, protein_pair_funsim
     
     
     
