@@ -30,7 +30,7 @@ def display_page(pathname):
     #elif pathname == '/apps/app2':
     #    return app2.layout
     else:
-        return index_page
+        return app1.layout #index_page
 
 if __name__ == '__main__':
     app.run_server(debug=False)
