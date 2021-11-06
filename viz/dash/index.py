@@ -3,6 +3,7 @@ from dash import html
 from dash.dependencies import Input, Output
 
 from app import app
+from app import server
 import app1
 #import app1_baseline
 

@@ -14,36 +14,37 @@ import numpy as np
 from app import app
 
 use_random_baseline = False
+subsamples = 1000
 
 if use_random_baseline:
-    cluster_csv_path = "/Users/linda/Downloads/clusters_random_control_clusters.csv"
+    cluster_csv_path = "assets/clusters_random_control_clusters.csv"
     df = pd.read_csv(cluster_csv_path)
     df = df.rename(columns={'cluster_label': 'Cluster Label'})
     cluster_df = pd.read_csv(cluster_csv_path)
     cluster_df = df.rename(columns={'cluster_label': 'Cluster Label'})
 else:
-    cluster_parquet_path = "/Users/linda/Downloads/all_proteins_with_confidence.parquet"
+    cluster_parquet_path = "assets/all_proteins_with_confidence.parquet"
     df = pd.read_parquet(cluster_parquet_path)
 
-    cluster_stats_path = "/Users/linda/Downloads/samples_cluster_stats2.parquet"
+    cluster_stats_path = "assets/samples_cluster_stats2.parquet"
     cluster_df = pd.read_parquet(cluster_stats_path)
     cluster_df = cluster_df.reset_index()
     cluster_df = cluster_df.rename(columns={'cluster_label': 'Cluster Label'})
 
-    table_path = "/Users/linda/Downloads/pairwise_proteins2.parquet"
+    table_path = "assets/pairwise_proteins2.parquet"
     table_df = pd.read_parquet(table_path)
     table_df = table_df.rename(columns={'target_protein': 'result_protein', 'query_protein': 'target_protein'})
 
-    model_path = "/Users/linda/Downloads/mvp_input_2021_1029_0054_model_overview.pkl"
+    model_path = "assets/mvp_input_2021_1029_0054_model_overview.pkl"
     with open(model_path, 'rb') as f:
 	    model_dict = pickle.load(f)
     model_dict['Median number of proteins per cluster'] = cluster_df['count'].median()
     model_dict['Total number of proteins'] = cluster_df['count'].sum()
 
-
-#cluster_df = cluster_df.sample(1000)
-#df = df.sample(1000)
-#table_df = table_df.sample(1000)
+if subsamples:
+    cluster_df = cluster_df.sample(min(subsamples, len(cluster_df)))
+    df = df.sample(min(subsamples, len(df)))
+    table_df = table_df.sample(min(subsamples, len(table_df)))
 
 df = df.astype({'Cluster Label': 'int32'})
 
