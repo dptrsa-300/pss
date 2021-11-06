@@ -15,7 +15,7 @@ app.layout = html.Div([
 
 
 index_page = html.Div([
-    html.H1("Welcome to AlphaFold"),
+    html.H1("Welcome"),
     dcc.Link('Open Structural Similarity Explorer', href='/app1'),
     #dcc.Link('Open Structural Similarity Explorer - Baseline', href='/app1_baseline'),
     html.Br(),
