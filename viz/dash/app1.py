@@ -25,15 +25,21 @@ else:
     cluster_df = cluster_df.reset_index()
     cluster_df = cluster_df.rename(columns={'cluster_label': 'Cluster Label'})
 
-    table_path = "/Users/linda/Downloads/pairwise_proteins.parquet"
+    table_path = "/Users/linda/Downloads/pairwise_proteins2.parquet"
     table_df = pd.read_parquet(table_path)
     table_df = table_df.rename(columns={'target_protein': 'result_protein', 'query_protein': 'target_protein'})
+
+
+#cluster_df = cluster_df.sample(1000)
+#df = df.sample(1000)
+#table_df = table_df.sample(1000)
 
 df = df.astype({'Cluster Label': 'int32'})
 
 protein_indicators = df['protein'].unique()
 cluster_indicators = df['Cluster Label'].unique()
-table_columns = [c for c in ['target_protein', 'result_protein', 'aligned_length', 'rmsd', 'tmalign_score'] if c in table_df.columns]
+table_columns = [c for c in ['result_protein', 'aligned_length', 'bitscore', 'evalue', 'rmsd', 'tmalign_score'] if c in table_df.columns]
+#table_columns = [c for c in ['target_protein', 'result_protein', 'aligned_length', 'rmsd', 'tmalign_score'] if c in table_df.columns]
 #table_columns = [c for c in ['aligned_length', 'rmsd', 'tmalign_score'] if c in table_df.columns]
 
 all_colors = px.colors.qualitative.Plotly
@@ -48,6 +54,7 @@ last_views = None
 
 layout = html.Div([
     html.H1('AlphaFold Protein Structural Similarity Explorer'),
+    html.H2('Query by Protein or Cluster'),
     html.Div([
         html.Div([
             dcc.Dropdown(
@@ -73,10 +80,11 @@ layout = html.Div([
     style={'width': '50%', 'display': 'inline-block'}),
 
     html.Div([
+        html.H2('Protein Comparisons'),
         html.Div([
             html.Div([
             html.Div([
-                html.H2('Explorer'),
+                html.H3('Explorer'),
             ],
 	    style={'width': '25%', 'display': 'inline-block', 
                    }),
@@ -108,7 +116,7 @@ layout = html.Div([
         style={'width': '50%', 'display': 'inline-block'}),
 
         html.Div([
-            html.H2('Results and Evaluation'),
+            html.H3('Results and Evaluation'),
             dash_table.DataTable(
                 id='results-table',
                 columns=[{"name": i, "id": i} for i in table_columns],
@@ -117,7 +125,7 @@ layout = html.Div([
 				filter_action='native',
 				page_action="native",
         		page_current=0,
-        		page_size=12,
+        		page_size=10,
             ),
         ],
         style={'width': '50%', 'display': 'inline-block',
@@ -126,8 +134,9 @@ layout = html.Div([
     style={'width': '100%', 'display': 'inline-block'}),
 
         html.Div([
+                html.H2('Cluster Comparisons'),
 			html.Div([
-				html.H2('Number of Proteins Per Cluster'),
+				html.H3('Number of Proteins Per Cluster'),
             	dcc.Graph(
                 	id='cluster-num-hist',
 				)
@@ -135,7 +144,7 @@ layout = html.Div([
         	style={'width': '50%', 'display': 'inline-block'}),
 		
 			html.Div([
-				html.H2('Protein Sequence Lengths'),
+				html.H3('Protein Sequence Lengths'),
             	dcc.Graph(
                 	id='cluster-protein-length',
 				)
@@ -251,10 +260,13 @@ def update_graph(protein, cluster_label,
     points_count.reset_index(inplace=True)
     """
 
+    cluster_dfff = cluster_dff[cluster_dff['count'] < 100]
     num_hist = px.histogram(
-	    x=cluster_dff['count'],
-	    color=cluster_dff['Cluster Label'].astype(str),
+	    x=cluster_dfff['count'],
+	    color=cluster_dfff['Cluster Label'].astype(str),
         color_discrete_map=color_discrete_map,
+		#log_x=True,
+		nbins = 100,
         )
     """
 	num_hist = px.scatter_3d(points_count, 
@@ -264,10 +276,13 @@ def update_graph(protein, cluster_label,
     """
 
     # TODO Set to Protein Sequence Length!
+    cluster_dfff = cluster_dff[cluster_dff['median_seq_len'] < 2500]
     length_hist = px.histogram(
-	    x=cluster_dff['median_seq_len'],
-	    color=cluster_dff['Cluster Label'].astype(str),
+	    x=cluster_dfff['median_seq_len'],
+	    color=cluster_dfff['Cluster Label'].astype(str),
         color_discrete_map=color_discrete_map,
+		#log_x=True,
+		nbins = 100,
        )
 
     return [

@@ -4,6 +4,7 @@ from dash.dependencies import Input, Output
 
 from app import app
 import app1
+#import app1_baseline
 
 
 app.layout = html.Div([
@@ -15,6 +16,7 @@ app.layout = html.Div([
 index_page = html.Div([
     html.H1("Welcome to AlphaFold"),
     dcc.Link('Open Structural Similarity Explorer', href='/app1'),
+    #dcc.Link('Open Structural Similarity Explorer - Baseline', href='/app1_baseline'),
     html.Br(),
 ])
 
