@@ -3,7 +3,9 @@ from dash import html
 from dash.dependencies import Input, Output
 
 from app import app
+from app import server
 import app1
+#import app1_baseline
 
 
 app.layout = html.Div([
@@ -13,8 +15,9 @@ app.layout = html.Div([
 
 
 index_page = html.Div([
-    html.H1("Welcome to AlphaFold"),
+    html.H1("Welcome"),
     dcc.Link('Open Structural Similarity Explorer', href='/app1'),
+    #dcc.Link('Open Structural Similarity Explorer - Baseline', href='/app1_baseline'),
     html.Br(),
 ])
 
@@ -27,7 +30,7 @@ def display_page(pathname):
     #elif pathname == '/apps/app2':
     #    return app2.layout
     else:
-        return index_page
+        return app1.layout #index_page
 
 if __name__ == '__main__':
     app.run_server(debug=False)
