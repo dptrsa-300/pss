@@ -14,7 +14,7 @@ import numpy as np
 from app import app
 
 use_random_baseline = False
-subsamples = 1000
+subsamples = 2000
 
 if use_random_baseline:
     cluster_csv_path = "assets/clusters_random_control_clusters.csv"
@@ -213,6 +213,21 @@ def toggle_view():
     last_views = [cluster_view, confidence_view, functional_view]
     return cluster_view, confidence_view, functional_view
 
+app.clientside_callback(
+    """
+    function(protein_click_data) {
+        link = 'https://www.uniprot.org/uniprot/'
+        if (protein_click_data) {
+            link += protein_click_data["points"][0]["customdata"][0]
+            window.open(link)
+        }
+        return protein_click_data
+    }
+    """,
+    Output('cluster-3D-scatter', 'clickData'),
+    Input('cluster-3D-scatter', 'clickData'),
+    )
+
 @app.callback(
     Output('protein_filter', 'disabled'),
     Output('cluster_label_filter', 'disabled'),
@@ -230,17 +245,13 @@ def toggle_view():
     Input('cluster-view-button', 'n_clicks'),
     Input('confidence-view-button', 'n_clicks'),
     Input('functional-view-button', 'n_clicks'),
-	Input('cluster-3D-scatter', 'clickData'),
+	#Input('cluster-3D-scatter', 'clickData'),
 	Input('cluster-num-hist', 'clickData'),
     )
 def update_graph(protein, cluster_label, 
             cluster_view_button, confidence_view_button, functional_view_button,
-            protein_click_data, cluster_click_data):
-    link = 'https://www.uniprot.org/uniprot/'
-    if protein_click_data:
-        link += protein_click_data['points'][0]['customdata'][0]
-        webbrowser.open(link)
-
+            #protein_click_data, 
+            cluster_click_data):
     if cluster_click_data:
         cluster_label = [cluster_click_data['points'][0]['customdata']]
         cluster_click_data = None
