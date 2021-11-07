@@ -351,7 +351,7 @@ def update_graph(protein, cluster_label,
         mode='markers',
         marker=dict(
             sizemode='diameter',
-            sizeref=0.2,
+            sizeref=0.07,
             size=df3['log_protein'],
             color=df3['Cluster Label'].apply(lambda x: color_discrete_map[str(x)]),
             #colorscale = 'sunsetdark',
