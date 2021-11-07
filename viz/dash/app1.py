@@ -10,8 +10,9 @@ import webbrowser
 import pickle
 import numpy as np
 
-
 from app import app
+
+pd.options.display.float_format = '${:.2f}'.format
 
 use_random_baseline = False
 subsamples = 2000
@@ -53,6 +54,11 @@ cluster_indicators = df['Cluster Label'].unique()
 table_columns = [c for c in ['target_protein', 'result_protein', 'aligned_length', 'bitscore', 'evalue', 'rmsd', 'tmalign_score'] if c in table_df.columns]
 #table_columns = [c for c in ['target_protein', 'result_protein', 'aligned_length', 'rmsd', 'tmalign_score'] if c in table_df.columns]
 #table_columns = [c for c in ['aligned_length', 'rmsd', 'tmalign_score'] if c in table_df.columns]
+
+for c in ['bitscore', 'rmsd', 'tmalign_score']:
+    table_df[c]=table_df[c].map('{:.2f}'.format)
+table_df['evalue']=table_df['evalue'].map('{:.2e}'.format)
+table_df['aligned_length']=table_df['aligned_length'].map('{:.0f}'.format)
 
 all_colors = px.colors.qualitative.Plotly
 num_colors = len(all_colors)
