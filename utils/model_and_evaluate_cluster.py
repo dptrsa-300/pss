@@ -8,11 +8,12 @@ import time
 import string
 import io
 import itertools
+import pickle
 
 import numpy as np
 import pandas as pd
 
-#from sklearn.cluster import HDBSCAN
+import hdbscan
 from sklearn.cluster import DBSCAN
 from sklearn.metrics import davies_bouldin_score, silhouette_samples, silhouette_score
 
@@ -625,18 +626,163 @@ def tmalign_scatter(metrics, num_results=10, version='top_score_tmalign', select
     return focus
 
 
-def model_overview(model):
+def model_overview(model, X):
+    """
+    Given a clustering model and the original embeddings, generate stats related to the model.
+    """
+    
+    labels_all = model.labels_
     labels = np.unique(model.labels_, return_counts=True)
     noise_ct = labels[1][0]
     max_cluster_size = labels[1][1:].max()
     num_proteins=model.labels_.shape[0]
+    sil_sc_nonoise, db_sc_nonoise = silhouette_n_davies(X[labels_all!=-1], labels_all[labels_all!=-1])
 
 
-    return {"Model": str(model),
-            "Length of embedding":len(model.weighted_cluster_centroid(0)),
+    result= {"Model": str(model),
             "Number of clusters categories (incl. noise)": np.unique(model.labels_, return_counts=True)[1].shape[0],
             "Number of clusters (excl. noise)": np.unique(model.labels_, return_counts=True)[1].shape[0]-1,
             "Noise": noise_ct,
             "Largest non-noise cluster": max_cluster_size,
             "Noise as % of total":  noise_ct/num_proteins,
-            "Noise and largest cluster as % of total": (noise_ct+max_cluster_size)/num_proteins}
+            "Noise and largest cluster as % of total": (noise_ct+max_cluster_size)/num_proteins,
+            "Silhouette score": sil_sc_nonoise,
+            "DB score": db_sc_nonoise
+           }
+    
+    try: 
+        result["Length of embedding"] = len(model.weighted_cluster_centroid(0))
+    except:
+        pass
+    
+    return result 
+            
+def map_gomf_to_cluster(clusters, alphafold_protein_to_gomf):
+    """
+    Given clusters and protein-to-GOMF mapping, 
+    Show all proteins in clusters with GOMF and parent GOMF. 
+    Left join to clusters rather than inner or outer join, because 
+    for some embeddings (e.g., DeepFold), not all the proteins will have an
+    embedding generated and therefore will not have been in the clustering model.
+    """
+                
+    clusters_with_gomf = clusters.merge(alphafold_protein_to_gomf,
+                   how='left',   # In case clusters excludes the proteins that did not have any embeddings
+                   left_on='protein',
+                   right_on='protein_id'
+                  )
+
+    return clusters_with_gomf
+    
+
+def funsim(all_protein_combos_per_cluster, goa=None):
+    """
+    Find functional similarities for all protein pairs in each cluster 
+    
+    Inputs:
+        - all_protein_combos_per_cluster: possible protein pair combinations per cluster 
+        - goa: Gene ontology annotation file that maps proteins to gene ontology 
+    """
+    
+    # If goa df is not provided, download from GCS 
+    if isinstance(goa, type(None)):
+        print("No GO annotations provided. Downloading from google cloud.")
+        goa = pd.read_csv( io.BytesIO(gcs.download_blob("functional_sim/data/goa_human.gaf.gz")), 
+                            compression='gzip', 
+                            header=None,
+                            skiprows=41,    # hard-coded. May be different for other gaf files.
+                            sep='\t')
+        goa.columns=["DB", "DB Object ID", "DB Object Symbol", "Qualifier", "GO ID", "Reference", 
+                     "Evidence Code", "With or From", "Aspect", "Name", "Synonym", "Type", 
+                     "Taxon", "Date", "Assigned By", "Annotation Extension", "Gene Product Form ID"]
+                       
+    ##################
+    # Calculate IC (information content) of each term
+    
+    # Identify molecular functions in GO
+    with open('functional_sim/intermediary_data/shortest_from_root.pkl', 'rb') as file:
+        shortest_from_root = pickle.load(file)    
+        goa_goid_mf = [goid for goid in set(goa["GO ID"]) if goid in shortest_from_root['GO:0003674'] ]
+    
+    # IC calculation 
+    M = goa[goa['GO ID'].isin(goa_goid_mf)].pivot_table(index='GO ID',
+                values='DB Object ID',
+                aggfunc=pd.Series.nunique
+               ).to_dict()['DB Object ID']
+    
+    N = len(goa[goa['GO ID'].isin(goa_goid_mf)]['DB Object ID'].unique())
+    print("Total number of proteins in GO annotations:", N)
+    
+    IC_t = {t: -np.log(m/N) for t, m in M.items()}
+    
+    
+    ##################
+    
+    # Dictionary of proteins and their GO terms 
+    goa_by_protein = goa[goa['GO ID'].isin(goa_goid_mf)].pivot_table(
+                            index=["DB Object ID"],
+                            values=["GO ID"],
+                            aggfunc=lambda x:set(x)
+                        ).to_dict()['GO ID']
+    
+    
+    ##################
+    # Eliminate duplicates in the pairs of proteins, since the jaccard pairwise metric is symmetrical.
+    
+    all_protein_combos_per_cluster['protein_A'] = all_protein_combos_per_cluster[
+        ['query_protein','target_protein']].min(axis=1)
+
+    all_protein_combos_per_cluster['protein_B'] = all_protein_combos_per_cluster[
+        ['query_protein','target_protein']].max(axis=1)
+
+    protein_pair_funsim = all_protein_combos_per_cluster[
+        ['protein_A', 'protein_B', 'cluster']].drop_duplicates()
+    
+    
+    ##################
+    # Remove duplicate pairs, as this metric is symmetric.
+    
+    protein_pair_funsim['funsim'] = \
+        protein_pair_funsim.apply(
+            lambda x: jaccard_sim_protein_go(x['protein_A'], x['protein_B'], goa_by_protein, IC_t), 
+            axis=1
+        )
+
+    # Pivot by cluster 
+    cluster_funsim = protein_pair_funsim.pivot_table(
+        index="cluster",
+        values="funsim",
+        aggfunc=[len, "count", np.mean]
+    )
+    cluster_funsim.columns = ["num_pairs", "num_pairs_with_funsim", "funsim"]
+    cluster_funsim["perc_pairs_w_funsim"] = cluster_funsim.num_pairs_with_funsim/cluster_funsim.num_pairs
+    
+    return cluster_funsim, protein_pair_funsim
+    
+    
+    
+def jaccard_sim_protein_go(protein_A, protein_B, goa_by_protein, IC_t):
+    """Calculate the GIC or the Jaccard index of terms between two proteins.
+    https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-9-S5-S4
+    
+    - goa_by_protein: Dictionary where key is protein ID and value is list of GO annotation terms for that protein
+    - IC_t: Dictionary where key is GO term and value is its information content (IC)
+    
+    """
+    if protein_A not in goa_by_protein or protein_B not in goa_by_protein:
+        return None
+    
+    go_intersection = goa_by_protein[protein_A].intersection(goa_by_protein[protein_B])
+    go_union        = goa_by_protein[protein_A].union(       goa_by_protein[protein_B])
+    
+    numerator = 0
+    denominator = 0
+    
+    for goid in go_intersection:
+        numerator += IC_t[goid]
+        
+    denominator = numerator
+    for goid in go_union - go_intersection:
+        denominator += IC_t[goid]
+        
+    return numerator/denominator
