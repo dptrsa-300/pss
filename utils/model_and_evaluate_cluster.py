@@ -881,3 +881,7 @@ class funsim_evaluator():
 
         return {k: v for k, v in
             sorted(new_go_ct_dict.items(), key=lambda item: item[1]["Num. Protein"], reverse=True)}
+    
+    def get_go_summary_df(self, clusterno):
+        return pd.DataFrame.from_dict(self.cluster_funsim.loc[clusterno]["go_summary"],
+                               orient='index')
