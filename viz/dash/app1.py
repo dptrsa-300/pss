@@ -50,7 +50,7 @@ if subsamples:
 
 df = df.astype({'Cluster Label': 'int32'})
 
-def precompute_closest_clusters(df):
+def compute_closest_clusters(df):
     cluster_groups = df.groupby(['Cluster Label'])
     cluster_df = cluster_groups.count().reset_index()
     cluster_xyz = cluster_groups[['X', 'Y', 'Z']].mean().to_numpy()
@@ -59,7 +59,7 @@ def precompute_closest_clusters(df):
     closest_clusters = {label: cluster_label.iloc[np.argsort(dist)[1:].tolist()].to_list() for label, dist in zip(cluster_label, distances)}
     return closest_clusters
 
-closest_clusters = precompute_closest_clusters(df)
+#closest_clusters = compute_closest_clusters(df)
 
 protein_indicators = df['protein'].unique()
 cluster_indicators = df['Cluster Label'].unique()
@@ -296,6 +296,7 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
     table_dff = table_df
 
 
+    closest_clusters = compute_closest_clusters(dff)
     def add_neighboring_clusters(cluster_label, num_neighbors):
         input_cluster_label = cluster_label[:]
         for cluster in input_cluster_label:
