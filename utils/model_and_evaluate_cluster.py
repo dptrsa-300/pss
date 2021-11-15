@@ -675,7 +675,7 @@ def map_gomf_to_cluster(clusters, alphafold_protein_to_gomf):
 
     return clusters_with_gomf
 
-def map_uniprot_data(cluster_data):
+def map_uniprot_data(cluster_data, left_on='protein'):
     """
     Given clusters, map in the information available on UniProtKB. 
     
@@ -693,7 +693,7 @@ def map_uniprot_data(cluster_data):
     uni = gcs.download_parquet('structure_files/uniprot-organism Homo+sapiens+(Human)+9606-AlphaFoldFiltered.parquet')
     cluster_w_uniprot = cluster_data.merge(uni,
                       how='left',
-                      left_on='protein',
+                      left_on=left_on,
                       right_on='Entry'
                      )    
     
