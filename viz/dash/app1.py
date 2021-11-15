@@ -147,7 +147,8 @@ layout = html.Div([
         	style={'width': '48%', 'display': 'inline-block'}),
 		
 			html.Div([
-				html.H6('Protein Sequence Lengths Per Cluster'),
+				#html.H6('Protein Sequence Lengths Per Cluster'),
+				html.H6('Industry Standard Structural Similarity Metrics'),
             	dcc.Graph(
                 	id='cluster-protein-length',
 				)
@@ -435,7 +436,7 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
 			  size=points_count['Count'] / points_count['Count'].max())
     """
 
-    #"""
+    """
     cluster_dfff = cluster_dff[cluster_dff['median_seq_len'] < 2500]
     length_hist = px.histogram(
 	    x=cluster_dfff['median_seq_len'],
@@ -446,20 +447,29 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
         labels ={'color': 'Cluster'},
        )
     length_hist.update_layout(margin=dict(l=0, r=0, t=0, b=0), xaxis={'title': 'sequence length'})
-    #"""
-
     """
+
+    #"""
     table_dfff = table_df.dropna()
-    length_hist = px.scatter(
-	    x=table_dfff['tmalign_score'],
-		y=table_dfff['rmsd'],
+    left = dff.set_index('protein')
+    right = table_dfff.set_index('target_protein')
+    new = left.join(right)
+    table_dfff = new.reset_index()
+    table_dfff = table_dfff.rename(columns={'index': 'target_protein'})
+    table_dfff = table_dfff.dropna()
+    length_hist = px.scatter(table_dfff,
+	    x='tmalign_score',
+		y='rmsd',
+		color=table_dfff['Cluster Label'].astype(int).astype(str),
+        #color_discrete_map=color_discrete_map, 
+        hover_data={'target_protein': True, 'result_protein': True},
 	    #color=table_dff['Cluster Label'].astype(str),
         color_discrete_map=color_discrete_map,
 		#log_x=True,
         labels ={'color': 'Cluster'},
        )
-    length_hist.update_layout(margin=dict(l=0, r=0, t=0, b=0))
-    """
+    length_hist.update_layout(margin=dict(l=0, r=0, t=0, b=0), xaxis={'title': 'TM-Align Score'}, yaxis={'title': 'RMSD'})
+    #"""
 
     # Model level data
 
