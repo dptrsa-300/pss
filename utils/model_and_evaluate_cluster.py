@@ -674,7 +674,53 @@ def map_gomf_to_cluster(clusters, alphafold_protein_to_gomf):
                   )
 
     return clusters_with_gomf
+
+def map_uniprot_data(cluster_data):
+    """
+    Given clusters, map in the information available on UniProtKB. 
     
+    ABOUT 'structure_files/uniprot-organism Homo+sapiens+(Human)+9606-AlphaFoldFiltered.parquet'
+        Downloaded [UniProtKB 2021_03 results (Filtered by Human)]
+        (https://www.uniprot.org/uniprot/?query=organism%3A%22Homo+sapiens+%28Human%29+%5B9606%5D%22&sort=id&desc=no)
+        on Nov 14, 2021. Filtered by the overlapping proteins with AlphaFold. 
+        Added an indicator for whether a 3d structure exists. If there is a structure information,
+        that means uniprot had a 3D structure other than those predicted by AlphaFold.
+
+    `has_3d` marks whether there is a 3D structure data outside of AlphaFold2, which would be one 
+    of ['X-ray crystallography',  'NMR spectroscopy', 'Electron microscopy', 'Model', 'Infrared spectroscopy']
+    
+    """
+    uni = gcs.download_parquet('structure_files/uniprot-organism Homo+sapiens+(Human)+9606-AlphaFoldFiltered.parquet')
+    cluster_w_uniprot = cluster_data.merge(uni,
+                      how='left',
+                      left_on='protein',
+                      right_on='Entry'
+                     )    
+    
+    cluster_w_uniprot["has_3d"].fillna(False, inplace=True)
+    return cluster_w_uniprot
+    
+
+def gen_cluster_uniprot_stats(cluster_data):
+    """
+    Given clusters, map in the information available on UniProtKB. 
+    
+    `has_3d` marks whether there is a 3D structure data outside of AlphaFold2, which would be one 
+    of ['X-ray crystallography',  'NMR spectroscopy', 'Electron microscopy', 'Model', 'Infrared spectroscopy']
+    
+    Summarizes the results by cluster.
+    
+    """
+
+    cluster_w_uniprot = map_uniprot_data(cluster_data)
+    
+    uniprot_stats= cluster_w_uniprot.pivot_table(index='cluster_label',
+                              values='has_3d',
+                              aggfunc=[len, sum, np.mean]
+                             ).reset_index()
+    uniprot_stats.columns=['cluster_label', 'num_proteins', 'num_proteins_has_3d', 'perc_proteins_has_3d']
+    
+    return uniprot_stats
 
 class funsim_evaluator():
     def __init__(self, all_protein_combos_per_cluster, goa=None):
