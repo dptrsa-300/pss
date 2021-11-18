@@ -43,11 +43,23 @@ else:
     model_dict['Total number of proteins'] = cluster_df['count'].sum()
 
 if subsamples:
-    cluster_df = cluster_df.sample(min(subsamples, len(cluster_df)))
-    df = df.sample(min(subsamples, len(df)))
-    table_df = table_df.sample(min(subsamples, len(table_df)))
+    #cluster_df = cluster_df.sample(min(subsamples, len(cluster_df))).sort_values(by=['Cluster Label'])
+    df = df.sample(min(subsamples, len(df))).sort_values(by=['Cluster Label'])
+    cluster_df = cluster_df[cluster_df['Cluster Label'].isin(df['Cluster Label'].unique())].sort_values(by=['Cluster Label'])
+    table_df = table_df.sample(min(subsamples, len(table_df))).sort_values(by=['target_protein'])
 
 df = df.astype({'Cluster Label': 'int32'})
+
+def compute_closest_clusters(df):
+    cluster_groups = df.groupby(['Cluster Label'])
+    cluster_df = cluster_groups.count().reset_index()
+    cluster_xyz = cluster_groups[['X', 'Y', 'Z']].mean().to_numpy()
+    cluster_label = cluster_df['Cluster Label']
+    distances = np.linalg.norm(cluster_xyz[:, np.newaxis] - cluster_xyz[np.newaxis, :], axis=-1)
+    closest_clusters = {label: cluster_label.iloc[np.argsort(dist)[1:].tolist()].to_list() for label, dist in zip(cluster_label, distances)}
+    return closest_clusters
+
+#closest_clusters = compute_closest_clusters(df)
 
 protein_indicators = df['protein'].unique()
 cluster_indicators = df['Cluster Label'].unique()
@@ -97,7 +109,7 @@ layout = html.Div([
                 multi=True,
             ),
         ],
-        style={'width': '50%', 'display': 'inline-block'}),
+        style={'width': '33.333333%', 'display': 'inline-block'}),
         html.Div([
             dcc.Dropdown(
                 id='cluster_label_filter', className='dropdown',
@@ -107,9 +119,20 @@ layout = html.Div([
                 multi=True,
             ),
         ],
-        style={'width': '50%', 'display': 'inline-block'}),
+        style={'width': '33.333333%', 'display': 'inline-block'}),
+        html.Div([
+            dcc.Dropdown(
+                id='cluster_count_filter', className='dropdown',
+                options=(lambda x: x[0].update({'label': '1 Cluster'}) or x)([{'label': str(i)  + ' Clusters', 'value': i} for i in range(1, len(cluster_indicators))]),
+                value=0,
+                placeholder='Show Next Closest ...',
+				disabled=True,
+                multi=False,
+            ),
+        ],
+        style={'width': '33.333333%', 'display': 'inline-block'}),
     ],
-    style={'width': '50%', 'display': 'inline-block', 'padding': '0px 0px 0px 0px'}),
+    style={'width': '100%', 'display': 'inline-block', 'padding': '0px 0px 0px 0px'}),
 
 
         html.Div([
@@ -124,7 +147,8 @@ layout = html.Div([
         	style={'width': '48%', 'display': 'inline-block'}),
 		
 			html.Div([
-				html.H6('Protein Sequence Lengths Per Cluster'),
+				#html.H6('Protein Sequence Lengths Per Cluster'),
+				html.H6('Industry Standard Structural Similarity Metrics'),
             	dcc.Graph(
                 	id='cluster-protein-length',
 				)
@@ -237,6 +261,7 @@ app.clientside_callback(
 @app.callback(
     Output('protein_filter', 'disabled'),
     Output('cluster_label_filter', 'disabled'),
+    Output('cluster_count_filter', 'disabled'),
     Output('cluster-3D-scatter', 'figure'),
     Output('results-table', 'data'),
     Output('cluster-num-hist', 'figure'),
@@ -248,13 +273,14 @@ app.clientside_callback(
 	Output('cluster-num-hist', 'clickData'),
     Input('protein_filter', 'value'),
     Input('cluster_label_filter', 'value'),
+    Input('cluster_count_filter', 'value'),
     Input('cluster-view-button', 'n_clicks'),
     Input('confidence-view-button', 'n_clicks'),
     Input('functional-view-button', 'n_clicks'),
 	#Input('cluster-3D-scatter', 'clickData'),
 	Input('cluster-num-hist', 'clickData'),
     )
-def update_graph(protein, cluster_label, 
+def update_graph(protein, cluster_label, num_neighbor_clusters,
             cluster_view_button, confidence_view_button, functional_view_button,
             #protein_click_data, 
             cluster_click_data):
@@ -271,17 +297,39 @@ def update_graph(protein, cluster_label,
     table_dff = table_df
 
 
+    closest_clusters = compute_closest_clusters(dff)
+    def add_neighboring_clusters(cluster_label, num_neighbors):
+        input_cluster_label = cluster_label[:]
+        for cluster in input_cluster_label:
+            cluster_label += closest_clusters[cluster][:num_neighbor_clusters]
+        cluster_label = np.unique(cluster_label).tolist()
+        return cluster_label
+
+
     disable_protein_filter = False
     disable_cluster_filter = False
+    disable_count_filter = True
     if protein is not None and len(protein):
-        cluster_id = dff[dff['protein'].isin(protein)]['Cluster Label'].unique()
+        cluster_id = list(dff[dff['protein'].isin(protein)]['Cluster Label'].unique())
+        if num_neighbor_clusters is not None and num_neighbor_clusters > 0:
+            cluster_id = add_neighboring_clusters(cluster_id, num_neighbor_clusters)
         dff = dff[dff['Cluster Label'].isin(cluster_id)]
+
         table_dff = table_dff[table_dff['target_protein'].isin(protein) & table_dff['result_protein'].isin(dff['protein'].unique())]
         #table_dff = table_dff[table_dff['target_protein'].isin(protein)]
+
         disable_cluster_filter = True
+        disable_count_filter = False
+
     if cluster_label is not None and isinstance(cluster_label, list) and len(cluster_label):
-        dff = dff[dff['Cluster Label'].isin(cluster_label)]
+        cluster_id = cluster_label[:]
+        if num_neighbor_clusters is not None and num_neighbor_clusters > 0:
+            cluster_id = add_neighboring_clusters(cluster_id, num_neighbor_clusters)
+        dff = dff[dff['Cluster Label'].isin(cluster_id)]
+
         disable_protein_filter = True
+        disable_count_filter = False
+
     cluster_dff = cluster_dff[cluster_dff['Cluster Label'].isin(dff['Cluster Label'].unique())]
 
 
@@ -313,7 +361,13 @@ def update_graph(protein, cluster_label,
 
     scatter_fig = px.scatter_3d(scatter_dff, x=scatter_dff['X'], y=scatter_dff['Y'], z=scatter_dff['Z'],
               color=color, hover_data={'protein': True, 'length': True, 'Cluster Label': True}, color_discrete_map=color_discrete_map, labels={'color': 'Cluster', 'confidence': 'Confidence'})
-    scatter_fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend=True)
+    scatter_fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend=True,
+	    scene = dict(
+        yaxis={'visible': True, 'showticklabels': False, 'title': ''},
+        xaxis={'visible': True, 'showticklabels': False, 'title': ''},
+        zaxis={'visible': True, 'showticklabels': False, 'title': ''},
+        )
+    )
 
     """
     cluster_groups = dff.groupby(['Cluster Label'])
@@ -341,7 +395,7 @@ def update_graph(protein, cluster_label,
     points_count[['X', 'Y', 'Z']] = cluster_groups[['X', 'Y', 'Z']].mean()
     points_count = points_count.reset_index()
     df3 = points_count
-    df3['log_protein'] = df3['protein'].apply(lambda x: np.log(x))
+    df3['log_protein'] = df3['protein'].apply(lambda x: np.log(x) + 1.0)
 
     """
     num_hist = px.scatter_3d(df3, x=df3['X'], y=df3['Y'], z=df3['Z'], size=df3['log_protein'],
@@ -358,6 +412,7 @@ def update_graph(protein, cluster_label,
         marker=dict(
             sizemode='diameter',
             sizeref=0.07,
+			#sizemin=4,
             size=df3['log_protein'],
             color=df3['Cluster Label'].apply(lambda x: color_discrete_map[str(x)]),
             #colorscale = 'sunsetdark',
@@ -365,7 +420,13 @@ def update_graph(protein, cluster_label,
             line_color='rgba(255, 255, 255, 0)'
         )
     ))
-    num_hist.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend = False)
+    num_hist.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend = False,
+	    scene = dict(
+        yaxis={'visible': True, 'showticklabels': False, 'title': ''},
+        xaxis={'visible': True, 'showticklabels': False, 'title': ''},
+        zaxis={'visible': True, 'showticklabels': False, 'title': ''},
+        )
+    )
 
 
     """
@@ -375,7 +436,7 @@ def update_graph(protein, cluster_label,
 			  size=points_count['Count'] / points_count['Count'].max())
     """
 
-    # TODO Set to Protein Sequence Length!
+    """
     cluster_dfff = cluster_dff[cluster_dff['median_seq_len'] < 2500]
     length_hist = px.histogram(
 	    x=cluster_dfff['median_seq_len'],
@@ -385,13 +446,37 @@ def update_graph(protein, cluster_label,
 		nbins = 100,
         labels ={'color': 'Cluster'},
        )
-    length_hist.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+    length_hist.update_layout(margin=dict(l=0, r=0, t=0, b=0), xaxis={'title': 'sequence length'})
+    """
+
+    #"""
+    table_dfff = table_df.dropna()
+    left = dff.set_index('protein')
+    right = table_dfff.set_index('target_protein')
+    new = left.join(right)
+    table_dfff = new.reset_index()
+    table_dfff = table_dfff.rename(columns={'index': 'target_protein'})
+    table_dfff = table_dfff.dropna()
+    length_hist = px.scatter(table_dfff,
+	    x='tmalign_score',
+		y='rmsd',
+		color=table_dfff['Cluster Label'].astype(int).astype(str),
+        #color_discrete_map=color_discrete_map, 
+        hover_data={'target_protein': True, 'result_protein': True},
+	    #color=table_dff['Cluster Label'].astype(str),
+        color_discrete_map=color_discrete_map,
+		#log_x=True,
+        labels ={'color': 'Cluster'},
+       )
+    length_hist.update_layout(margin=dict(l=0, r=0, t=0, b=0), xaxis={'title': 'TM-Align Score'}, yaxis={'title': 'RMSD'})
+    #"""
 
     # Model level data
 
     return [
             disable_protein_filter,
             disable_cluster_filter,
+			disable_count_filter,
 	        scatter_fig, 
 	        table_dff.to_dict('records'),
 			num_hist,
