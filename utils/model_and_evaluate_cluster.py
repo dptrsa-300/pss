@@ -5,6 +5,7 @@ import gzip
 import os
 import sys
 import time
+from datetime import datetime
 import string
 import io
 import itertools
@@ -673,116 +674,260 @@ def map_gomf_to_cluster(clusters, alphafold_protein_to_gomf):
                   )
 
     return clusters_with_gomf
-    
 
-def funsim(all_protein_combos_per_cluster, goa=None):
+def map_uniprot_data(cluster_data, left_on='protein'):
     """
-    Find functional similarities for all protein pairs in each cluster 
+    Given clusters, map in the information available on UniProtKB. 
     
-    Inputs:
-        - all_protein_combos_per_cluster: possible protein pair combinations per cluster 
-        - goa: Gene ontology annotation file that maps proteins to gene ontology 
+    ABOUT 'structure_files/uniprot-organism Homo+sapiens+(Human)+9606-AlphaFoldFiltered.parquet'
+        Downloaded [UniProtKB 2021_03 results (Filtered by Human)]
+        (https://www.uniprot.org/uniprot/?query=organism%3A%22Homo+sapiens+%28Human%29+%5B9606%5D%22&sort=id&desc=no)
+        on Nov 14, 2021. Filtered by the overlapping proteins with AlphaFold. 
+        Added an indicator for whether a 3d structure exists. If there is a structure information,
+        that means uniprot had a 3D structure other than those predicted by AlphaFold.
+
+    `has_3d` marks whether there is a 3D structure data outside of AlphaFold2, which would be one 
+    of ['X-ray crystallography',  'NMR spectroscopy', 'Electron microscopy', 'Model', 'Infrared spectroscopy']
+    
     """
+    uni = gcs.download_parquet('structure_files/uniprot-organism Homo+sapiens+(Human)+9606-AlphaFoldFiltered.parquet')
+    cluster_w_uniprot = cluster_data.merge(uni,
+                      how='left',
+                      left_on=left_on,
+                      right_on='Entry'
+                     )    
     
-    # If goa df is not provided, download from GCS 
-    if isinstance(goa, type(None)):
-        print("No GO annotations provided. Downloading from google cloud.")
-        goa = pd.read_csv( io.BytesIO(gcs.download_blob("functional_sim/data/goa_human.gaf.gz")), 
-                            compression='gzip', 
-                            header=None,
-                            skiprows=41,    # hard-coded. May be different for other gaf files.
-                            sep='\t')
-        goa.columns=["DB", "DB Object ID", "DB Object Symbol", "Qualifier", "GO ID", "Reference", 
-                     "Evidence Code", "With or From", "Aspect", "Name", "Synonym", "Type", 
-                     "Taxon", "Date", "Assigned By", "Annotation Extension", "Gene Product Form ID"]
-                       
-    ##################
-    # Calculate IC (information content) of each term
+    cluster_w_uniprot["has_3d"].fillna(False, inplace=True)
+    return cluster_w_uniprot
     
-    # Identify molecular functions in GO
-    with open('functional_sim/intermediary_data/shortest_from_root.pkl', 'rb') as file:
-        shortest_from_root = pickle.load(file)    
-        goa_goid_mf = [goid for goid in set(goa["GO ID"]) if goid in shortest_from_root['GO:0003674'] ]
-    
-    # IC calculation 
-    M = goa[goa['GO ID'].isin(goa_goid_mf)].pivot_table(index='GO ID',
-                values='DB Object ID',
-                aggfunc=pd.Series.nunique
-               ).to_dict()['DB Object ID']
-    
-    N = len(goa[goa['GO ID'].isin(goa_goid_mf)]['DB Object ID'].unique())
-    print("Total number of proteins in GO annotations:", N)
-    
-    IC_t = {t: -np.log(m/N) for t, m in M.items()}
-    
-    
-    ##################
-    
-    # Dictionary of proteins and their GO terms 
-    goa_by_protein = goa[goa['GO ID'].isin(goa_goid_mf)].pivot_table(
-                            index=["DB Object ID"],
-                            values=["GO ID"],
-                            aggfunc=lambda x:set(x)
-                        ).to_dict()['GO ID']
-    
-    
-    ##################
-    # Eliminate duplicates in the pairs of proteins, since the jaccard pairwise metric is symmetrical.
-    
-    all_protein_combos_per_cluster['protein_A'] = all_protein_combos_per_cluster[
-        ['query_protein','target_protein']].min(axis=1)
 
-    all_protein_combos_per_cluster['protein_B'] = all_protein_combos_per_cluster[
-        ['query_protein','target_protein']].max(axis=1)
+def gen_cluster_uniprot_stats(cluster_data):
+    """
+    Given clusters, map in the information available on UniProtKB. 
+    
+    `has_3d` marks whether there is a 3D structure data outside of AlphaFold2, which would be one 
+    of ['X-ray crystallography',  'NMR spectroscopy', 'Electron microscopy', 'Model', 'Infrared spectroscopy']
+    
+    Summarizes the results by cluster.
+    
+    """
 
-    protein_pair_funsim = all_protein_combos_per_cluster[
-        ['protein_A', 'protein_B', 'cluster']].drop_duplicates()
+    cluster_w_uniprot = map_uniprot_data(cluster_data)
     
+    uniprot_stats= cluster_w_uniprot.pivot_table(index='cluster_label',
+                              values='has_3d',
+                              aggfunc=[len, sum, np.mean]
+                             ).reset_index()
+    uniprot_stats.columns=['cluster_label', 'num_proteins', 'num_proteins_has_3d', 'perc_proteins_has_3d']
     
-    ##################
-    # Remove duplicate pairs, as this metric is symmetric.
-    
-    protein_pair_funsim['funsim'] = \
-        protein_pair_funsim.apply(
-            lambda x: jaccard_sim_protein_go(x['protein_A'], x['protein_B'], goa_by_protein, IC_t), 
-            axis=1
+    return uniprot_stats
+
+class funsim_evaluator():
+    def __init__(self, all_protein_combos_per_cluster, goa=None):
+        self.all_protein_combos_per_cluster = all_protein_combos_per_cluster
+        self.goa = goa 
+        
+        self.go_term_names = pd.read_csv(io.StringIO(
+            gcs.download_text('functional_sim/data/yeastmine_results_goa_goid_mf.tsv')),
+            sep='\t'
+            )
+        self.go_term_names.columns = [col[10:] for col in self.go_term_names.columns]
+        self.go_term_names_dict = self.go_term_names.set_index("Identifier").to_dict()
+        
+        # If goa df is not provided, download from GCS 
+        if isinstance(self.goa, type(None)):
+            print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "No GO annotations provided. Downloading from google cloud.")
+            self.goa = pd.read_csv( io.BytesIO(gcs.download_blob("functional_sim/data/goa_human.gaf.gz")), 
+                                compression='gzip', 
+                                header=None,
+                                skiprows=41,    # hard-coded. May be different for other gaf files.
+                                sep='\t')
+            self.goa.columns=["DB", "DB Object ID", "DB Object Symbol", "Qualifier", "GO ID", "Reference", 
+                         "Evidence Code", "With or From", "Aspect", "Name", "Synonym", "Type", 
+                         "Taxon", "Date", "Assigned By", "Annotation Extension", "Gene Product Form ID"]
+
+
+        ##################
+        # Calculate IC (information content) of each term
+
+        # Identify molecular functions in GO
+        self.shortest_from_root = gcs.download_pkl('functional_sim/shortest_from_root.pkl')
+        self.goa_goid_mf = [goid for goid in set(self.goa["GO ID"]) if goid in self.shortest_from_root['GO:0003674'] ]
+
+        # IC calculation 
+        self.M = self.goa[self.goa['GO ID'].isin(self.goa_goid_mf)].pivot_table(index='GO ID',
+                    values='DB Object ID',
+                    aggfunc=pd.Series.nunique
+                   ).to_dict()['DB Object ID']
+
+        self.N = len(self.goa[self.goa['GO ID'].isin(self.goa_goid_mf)]['DB Object ID'].unique())
+        print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "Total number of proteins in GO annotations:", self.N)
+
+        self.IC_t = {t: -np.log(m/self.N) for t, m in self.M.items()}
+        print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "IC_t created")
+
+        ##################
+
+        # Lookup dictionary of proteins and their GO terms 
+        self.goa_by_protein = self.goa[self.goa['GO ID'].isin(self.goa_goid_mf)].pivot_table(
+                                index=["DB Object ID"],
+                                values=["GO ID"],
+                                aggfunc=lambda x:set(x)
+                            ).to_dict()['GO ID']
+        print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "Dictionary of proteins and their GO terms lookup created")
+        
+
+        ##################
+        # Eliminate duplicates in the pairs of proteins from cluster output, 
+        # since the jaccard pairwise metric is symmetrical.
+
+        self.all_protein_combos_per_cluster['protein_A'] = self.all_protein_combos_per_cluster[
+            ['query_protein','target_protein']].min(axis=1)
+
+        self.all_protein_combos_per_cluster['protein_B'] = self.all_protein_combos_per_cluster[
+            ['query_protein','target_protein']].max(axis=1)
+
+        self.protein_pair_funsim = self.all_protein_combos_per_cluster[
+            ['protein_A', 'protein_B', 'cluster']].drop_duplicates()
+
+
+
+    def funsim(self):
+        """
+        Find functional similarities for all protein pairs in each cluster 
+
+        Inputs:
+            - self.all_protein_combos_per_cluster: possible protein pair combinations per cluster 
+            - goa: Gene ontology annotation file that maps proteins to gene ontology 
+        """
+
+
+        ##################
+        # Find Jaccard sim
+
+        self.protein_pair_funsim['funsim'] = \
+            self.protein_pair_funsim.apply(
+                lambda x: self.jaccard_sim_protein_go(x['protein_A'], x['protein_B']), 
+                axis=1
+            )
+        print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "Funsim calculated.")
+
+        # Pivot by cluster 
+        self.cluster_funsim = self.protein_pair_funsim.pivot_table(
+            index="cluster",
+            values="funsim",
+            aggfunc=[len, "count", np.mean]
         )
+        self.cluster_funsim.columns = ["num_pairs", "num_pairs_with_funsim", "funsim"]
+        self.cluster_funsim["perc_pairs_w_funsim"] = self.cluster_funsim.num_pairs_with_funsim/self.cluster_funsim.num_pairs
 
-    # Pivot by cluster 
-    cluster_funsim = protein_pair_funsim.pivot_table(
-        index="cluster",
-        values="funsim",
-        aggfunc=[len, "count", np.mean]
-    )
-    cluster_funsim.columns = ["num_pairs", "num_pairs_with_funsim", "funsim"]
-    cluster_funsim["perc_pairs_w_funsim"] = cluster_funsim.num_pairs_with_funsim/cluster_funsim.num_pairs
-    
-    return cluster_funsim, protein_pair_funsim
-    
-    
-    
-def jaccard_sim_protein_go(protein_A, protein_B, goa_by_protein, IC_t):
-    """Calculate the GIC or the Jaccard index of terms between two proteins.
-    https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-9-S5-S4
-    
-    - goa_by_protein: Dictionary where key is protein ID and value is list of GO annotation terms for that protein
-    - IC_t: Dictionary where key is GO term and value is its information content (IC)
-    
-    """
-    if protein_A not in goa_by_protein or protein_B not in goa_by_protein:
-        return None
-    
-    go_intersection = goa_by_protein[protein_A].intersection(goa_by_protein[protein_B])
-    go_union        = goa_by_protein[protein_A].union(       goa_by_protein[protein_B])
-    
-    numerator = 0
-    denominator = 0
-    
-    for goid in go_intersection:
-        numerator += IC_t[goid]
+        print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "Funsim summary by cluster done.")
+
+        #################
+        # Identify top common GO terms per cluster 
+        cluster_common_go = self.common_go_in_cluster()
+        print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "Common GO term sumary per cluster processed.")
         
-    denominator = numerator
-    for goid in go_union - go_intersection:
-        denominator += IC_t[goid]
-        
-    return numerator/denominator
+        self.cluster_funsim = self.cluster_funsim.merge(cluster_common_go,
+                                                       left_index=True,
+                                                        right_index=True)
+        print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "Merged cluster-level funsim score with GO summary.")
+
+
+#         return self.cluster_funsim, self.protein_pair_funsim
+
+
+
+    def jaccard_sim_protein_go(self, protein_A, protein_B):
+        """Calculate the GIC or the Jaccard index of terms between two proteins.
+        https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-9-S5-S4
+
+        - self.goa_by_protein: Dictionary where key is protein ID and value is list of GO annotation terms for that protein
+        - self.IC_t: Dictionary where key is GO term and value is its information content (IC)
+
+        """
+        if protein_A not in self.goa_by_protein or protein_B not in self.goa_by_protein:
+            return None
+
+        go_intersection = self.goa_by_protein[protein_A].intersection(self.goa_by_protein[protein_B])
+        go_union        = self.goa_by_protein[protein_A].union(       self.goa_by_protein[protein_B])
+
+        numerator = 0
+        denominator = 0
+
+        for goid in go_intersection:
+            numerator += self.IC_t[goid]
+
+        denominator = numerator
+        for goid in go_union - go_intersection:
+            denominator += self.IC_t[goid]
+
+        return numerator/denominator
+
+    
+    def common_go_in_cluster(self):
+        """ 
+        For each cluster, returns the list of GO terms that are associated with all proteins
+        in that cluster and provides a summary statistic. 
+        """
+
+        self.unique_proteins = self.all_protein_combos_per_cluster[["query_protein", "cluster"]].drop_duplicates()
+
+        print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "Get NP Arr of GO terms for each protein")
+        self.unique_proteins["go"] = self.unique_proteins["query_protein"].apply(self.get_nparr_of_go_terms)
+
+        print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "Turn GO terms into dict")
+        cluster_info = self.unique_proteins.pivot_table(
+                                    index='cluster',
+                                    values='go',
+                                    aggfunc=self.make_go_ct_dict
+                                )
+
+        print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "Map GO desc...")
+        cluster_info["go_summary"] = cluster_info["go"].map(self.map_go_desc)
+        print(datetime.now().strftime("%Y-%b-%d %H:%M:%S"), "Mapping GO desc done.")
+
+        return cluster_info.reset_index()
+    
+    def get_nparr_of_go_terms(self, protein_id):
+        '''
+        Looks up protein_id from self.goa_by_protein and returns the list of GO terms as a numpy array.
+        '''
+        try:
+            return np.array(list(self.goa_by_protein[protein_id]) )
+        except:
+            return np.array([])
+
+    def make_go_ct_dict(self, go_terms):
+        '''
+        Given a list of GO terms, stack them all together and return a dictionary
+        where the key is GO values and the value is their counts.
+        '''
+        go_ct = np.vstack(np.unique(np.hstack(go_terms), return_counts = True))
+        pairs = list(zip(go_ct[0], go_ct[1]))
+        go_ct_dict = {go: int(ct) for go, ct in pairs}
+
+        return go_ct_dict
+
+    def map_go_desc(self, go_ct_dict):
+        '''
+        Given a dictionary containing just go_id and count of proteins, 
+        pull in GO name and description as well. Return a dictionary where
+        the key is GO ID and the value is a dictionary containing 
+        num. proteins, GO name, and GO desc. 
+        '''
+
+        new_go_ct_dict = {}
+        temp_dict={}
+        for go_identifier, ct_protein in go_ct_dict.items():
+            new_go_ct_dict[go_identifier]= {}
+            new_go_ct_dict[go_identifier]["Num. Protein"] = ct_protein
+            new_go_ct_dict[go_identifier]["Name"] = self.go_term_names_dict["Name"][go_identifier]
+            new_go_ct_dict[go_identifier]["Description"] = self.go_term_names_dict["Description"][go_identifier]
+
+        return {k: v for k, v in
+            sorted(new_go_ct_dict.items(), key=lambda item: item[1]["Num. Protein"], reverse=True)}
+    
+    def get_go_summary_df(self, clusterno):
+        return pd.DataFrame.from_dict(self.cluster_funsim.loc[clusterno]["go_summary"],
+                               orient='index')
