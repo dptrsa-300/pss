@@ -92,6 +92,35 @@ def import_deepfold_embeddings(keys):
     
     return X_full, missing_full, protein_name_full 
 
+def find_elbow(n_neighbors, X_embed):
+    beg = datetime.datetime.now()
+    ts = beg.strftime("%Y-%m-%d-%H:%M")
+    print("###############")
+    print(ts)
+
+    nbrs = NearestNeighbors(n_neighbors=n_neighbors).fit(X_embed)
+    distances, indices = nbrs.kneighbors(X_embed)
+    distance_desc = sorted(distances[:,1], reverse=True)
+    plt.plot(distance_desc)
+    plt.show()
+
+    kneedle = KneeLocator(range(1,len(distance_desc)+1),  #x values
+                          distance_desc, # y values
+                          S=1.0, #parameter suggested from paper
+                          curve="convex", #parameter from figure
+                          direction="decreasing") #parameter from figure
+
+    kneedle.plot_knee_normalized()
+    plt.show()
+    
+    print("Run time:",  datetime.datetime.now() - beg )
+    print()
+    print("n_neighbors = {}".format(n_neighbors))
+    print("Elbow:", kneedle.elbow)
+    print("Elbow Y:", kneedle.elbow_y)
+    
+    return kneedle.elbow, kneedle.elbow_y
+
     
 def merge_cluster_stats(stats_1, stats_2):
     """If there are two dataframes with cluster_label and corresponding stats,
@@ -174,8 +203,10 @@ def download_asp(prefix='structure_files/atom_sites',
 
     return asp
     
-def protein_confidence_agg(clusters,
-                           asp):
+def protein_confidence_agg(clusters, asp):
+    '''
+    Confidence level at sequence level 
+    '''
    
     
     # Find avg confidence per protein
@@ -220,6 +251,38 @@ def protein_confidence_agg(clusters,
     # Return cluster-level confidence data
     return cluster_conf
 
+def protein_confidence_agg_protein_level(n=None):
+    """Downloads protein files, then summarizes protein-level confidence information."""
+    
+    prefix = 'structure_files/sequences'
+    keys = gcs.list_file_paths(prefix)
+    
+    if not n:
+        n = len(keys)
+
+    # Download, dedupe, and add 
+    asp = gcs.download_parquet(gcs.uri_to_bucket_and_key(keys[0])[1])
+
+    # Deduplicate asp because there may be data present across different files 
+    asp = asp[["protein_id", "confidence_pLDDT"]
+                   ].drop_duplicates()
+    
+    # Find avg confidence per protein
+    avg_conf_protein = pd.pivot_table(asp,
+                                      index="protein_id",
+                                      values="confidence_pLDDT",
+                                      aggfunc=np.mean
+                                     ).reset_index()
+    avg_conf_protein.columns=["protein", "protein_confidence"]
+
+    # Add confidence category for amino acid
+    asp["confidence"] = pd.cut(asp["confidence_pLDDT"], 
+                                       [0, 50, 70, 90, 100], 
+                                       labels=['D', 'L', 'M', 'H'],
+                                       right=False)
+    
+    # Return df with the conf data for amino acids and protein level 
+    return asp
 
 def get_go_dict(fname='c5.go.mf.v7.4.symbols.gmt'):
     """Download GO functions as Gene Symbols from GSEA"""
@@ -461,7 +524,7 @@ def hdbscan_gridsearch(X,
 
         # If everything is a noise or there's only one cluster, don't bother calculating scores. 
         if len(np.unique(cluster_labels))<=2:
-            sil_sc, db_sc, sil_sc_nonoise, db_sc_nonoise = None
+            sil_sc = db_sc = sil_sc_nonoise = db_sc_nonoise = None
         # Otherwise, calculate scores and save the results. 
         else:
             # Find cluster metrics 
