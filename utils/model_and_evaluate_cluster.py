@@ -33,6 +33,10 @@ import matplotlib
 from matplotlib.pyplot import figure
 from matplotlib import pyplot
 
+from sklearn.neighbors import NearestNeighbors
+from sklearn.cluster import KMeans
+from kneed import KneeLocator
+
     
 def deepfold_file_processor(key):
     """Download and parse a DeepFold embedding file. """
