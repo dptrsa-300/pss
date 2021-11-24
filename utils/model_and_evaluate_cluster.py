@@ -435,7 +435,8 @@ def silhouette_n_davies(X, cluster_labels):
     return sil_sc, db_sc
     
 
-def dbscan_gridsearch(X, range_eps, range_min_samples, metric='euclidean'):
+def dbscan_gridsearch(X, range_eps, range_min_samples, metric='euclidean',
+                     X_original=None):
     """For a set of values for `eps` and `range_min_samples`, run grid search in DBSCAN."""
     
     search_results = pd.DataFrame(columns=["eps", "min_samples", "metric", 
@@ -445,6 +446,11 @@ def dbscan_gridsearch(X, range_eps, range_min_samples, metric='euclidean'):
     
     num_proteins = len(X)
     
+    # Even if we use reduced embeddings, do silhouette score based on 
+    if isinstance(X_original, type(None)):
+        X_v2 = X
+    else:
+        X_v2 = X_original
     
     # Loop through grid and generate clustering models 
     for i in range_eps:
@@ -465,10 +471,10 @@ def dbscan_gridsearch(X, range_eps, range_min_samples, metric='euclidean'):
             # Otherwise, calculate scores and save the results. 
             else:
                 # Find cluster metrics 
-                sil_sc, db_sc = silhouette_n_davies(X, cluster_labels)
+                sil_sc, db_sc = silhouette_n_davies(X_v2, cluster_labels)
                 
                 # Find cluster metrics after excluding noise (or unclustered)
-                sil_sc_nonoise, db_sc_nonoise = silhouette_n_davies(X[cluster_labels!=-1], cluster_labels[cluster_labels!=-1])
+                sil_sc_nonoise, db_sc_nonoise = silhouette_n_davies(X_v2[cluster_labels!=-1], cluster_labels[cluster_labels!=-1])
                 max_clus_size = np.unique(cluster_labels, return_counts=True)[1][1:].max()
                 
             # Append results
