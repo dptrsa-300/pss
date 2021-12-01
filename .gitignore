@@ -142,3 +142,4 @@ gcloud.json
 *.cif
 /tmalign/*
 *.pdb
+*.pkl
