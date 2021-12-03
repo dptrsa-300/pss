@@ -32,14 +32,28 @@ import urllib.request
 import matplotlib
 from matplotlib.pyplot import figure
 from matplotlib import pyplot
+import matplotlib.pyplot as plt 
 
 from sklearn.neighbors import NearestNeighbors
 from sklearn.cluster import KMeans
 from kneed import KneeLocator
 
-    
-def deepfold_file_processor(key):
+def deepfold_file_processor(key):    
     """Download and parse a DeepFold embedding file. """
+    df_emb_decode = pd.read_csv(io.BytesIO(gcs.download_blob(key)))
+
+    protein = np.array(df_emb_decode.dropna().protein_id)
+    X = np.vstack(df_emb_decode["deepfold"].dropna(
+                  ).apply(lambda embed: np.array(str(embed)[1:-1].split()
+                                                )
+                         )
+                 )
+    missing_protein = list(df_emb_decode[df_emb_decode.deepfold.isna()]["protein_id"])
+    
+    return X, protein, missing_protein 
+
+def DO_NOT_USE_deepfold_file_processor(key):
+    """DO NOT USE. Version with a bug."""
     
     X = np.empty((0,398), dtype=float)
     protein = np.empty((0,1), dtype=str)
@@ -96,35 +110,41 @@ def import_deepfold_embeddings(keys):
     
     return X_full, missing_full, protein_name_full 
 
-def find_elbow(n_neighbors, X_embed):
-    beg = datetime.datetime.now()
+def find_elbow(n_neighbors, 
+               X_embed, 
+               curve='convex',   # convex or concave 
+               direction="decreasing"   # increasing or decreasing
+              ):
+    beg = datetime.now()
     ts = beg.strftime("%Y-%m-%d-%H:%M")
     print("###############")
     print(ts)
 
     nbrs = NearestNeighbors(n_neighbors=n_neighbors).fit(X_embed)
     distances, indices = nbrs.kneighbors(X_embed)
-    distance_desc = sorted(distances[:,1], reverse=True)
+    distance_desc = sorted(distances[:,-1])
+#     distance_desc = sorted(distances[:,-1], reverse=True)
     plt.plot(distance_desc)
     plt.show()
 
     kneedle = KneeLocator(range(1,len(distance_desc)+1),  #x values
                           distance_desc, # y values
                           S=1.0, #parameter suggested from paper
-                          curve="convex", #parameter from figure
-                          direction="decreasing") #parameter from figure
+                          curve=curve, #parameter from figure
+                          direction=direction, #parameter from figure
+                          online=True
+                         )
 
     kneedle.plot_knee_normalized()
     plt.show()
     
-    print("Run time:",  datetime.datetime.now() - beg )
+    print("Run time:",  datetime.now() - beg )
     print()
     print("n_neighbors = {}".format(n_neighbors))
     print("Elbow:", kneedle.elbow)
     print("Elbow Y:", kneedle.elbow_y)
     
     return kneedle.elbow, kneedle.elbow_y
-
     
 def merge_cluster_stats(stats_1, stats_2):
     """If there are two dataframes with cluster_label and corresponding stats,
