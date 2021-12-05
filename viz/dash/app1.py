@@ -10,12 +10,28 @@ import webbrowser
 import pickle
 import numpy as np
 
+#from time import time
+
 from app import app
+
+from flask_caching import Cache
+import os
+
+cache = Cache(app.server, config={
+    # try 'filesystem' if you don't want to setup redis
+    'CACHE_TYPE': 'filesystem',
+    'CACHE_DIR': 'cache',
+    #'CACHE_TYPE': 'redis',
+    #'CACHE_REDIS_URL': os.environ.get('REDIS_URL', '')
+})
+
+
+#start = time()
 
 pd.options.display.float_format = '${:.2f}'.format
 
 use_random_baseline = False
-subsamples = 2000
+subsamples = None #2000
 
 if use_random_baseline:
     cluster_csv_path = "assets/clusters_random_control_clusters.csv"
@@ -34,7 +50,7 @@ else:
 
     table_path = "assets/pairwise_proteins2.parquet"
     table_df = pd.read_parquet(table_path)
-    table_df = table_df.rename(columns={'target_protein': 'result_protein', 'query_protein': 'target_protein'})
+    table_df = table_df.rename(columns={'target_protein': 'result_protein', 'query_protein': 'target_protein', 'cluster': 'Cluster Label'})
 
     model_path = "assets/mvp_input_2021_1029_0054_model_overview.pkl"
     with open(model_path, 'rb') as f:
@@ -71,6 +87,17 @@ for c in ['bitscore', 'rmsd', 'tmalign_score']:
     table_df[c]=table_df[c].map('{:.2f}'.format)
 table_df['evalue']=table_df['evalue'].map('{:.2e}'.format)
 table_df['aligned_length']=table_df['aligned_length'].map('{:.0f}'.format)
+table_records = table_df.to_dict('records')
+
+#protein2cluster = {row['protein']: row['Cluster Label'] for index, row in df.iterrows()}
+cluster_table_df = table_df.dropna()
+cluster_table_df['tmalign_score'] = cluster_table_df['tmalign_score'].astype(float)
+cluster_table_df['rmsd'] = cluster_table_df['rmsd'].astype(float)
+#cluster_table_df['Target Cluster Label'] = cluster_table_df['target_protein'].apply(
+#        lambda x: protein2cluster[x])
+#cluster_table_df['Result Cluster Label'] = cluster_table_df['result_protein'].apply(
+#        lambda x: protein2cluster[x])
+cluster_table_df = cluster_table_df.groupby(['Cluster Label']).mean().reset_index()
 
 all_colors = px.colors.qualitative.Plotly
 num_colors = len(all_colors)
@@ -81,6 +108,7 @@ color_discrete_map = {str(i): all_colors[idx % num_colors] \
 global last_views
 last_views = None
 
+#print(time() - start, 'init')
 
 layout = html.Div([
     html.H1('AlphaFold2 Protein Structural Similarity Explorer'),
@@ -105,7 +133,7 @@ layout = html.Div([
                 id='protein_filter', className='dropdown',
                 options=[{'label': i, 'value': i} for i in protein_indicators],
                 value='',
-                placeholder='Select Target Protein',
+                placeholder='Type or Select Target Protein',
                 multi=True,
             ),
         ],
@@ -115,7 +143,7 @@ layout = html.Div([
                 id='cluster_label_filter', className='dropdown',
                 options=[{'label': i, 'value': i} for i in cluster_indicators],
                 value=-999,
-                placeholder='Select Cluster ID',
+                placeholder='Type or Select Cluster ID',
                 multi=True,
             ),
         ],
@@ -125,7 +153,7 @@ layout = html.Div([
                 id='cluster_count_filter', className='dropdown',
                 options=(lambda x: x[0].update({'label': '1 Cluster'}) or x)([{'label': str(i)  + ' Clusters', 'value': i} for i in range(1, len(cluster_indicators))]),
                 value=0,
-                placeholder='Show Next Closest ...',
+                placeholder='Select Number of Next Closest Clusters to Show',
 				disabled=True,
                 multi=False,
             ),
@@ -148,7 +176,7 @@ layout = html.Div([
 		
 			html.Div([
 				#html.H6('Protein Sequence Lengths Per Cluster'),
-				html.H6('Industry Standard Structural Similarity Metrics'),
+				html.H6('Industry / Gold Standard Structural Similarity Metrics'),
             	dcc.Graph(
                 	id='cluster-protein-length',
 				)
@@ -171,7 +199,7 @@ layout = html.Div([
                    }),
             html.Div([
                 html.Button('Cluster View', n_clicks=0, 
-                    id='cluster-view-button', className='view-button',
+                    id='cluster-view-button', className='view_button',
                     disabled=True),
             ],
 	    style={'width': '25%', 'display': 'inline-block', 
@@ -202,12 +230,15 @@ layout = html.Div([
             dash_table.DataTable(
                 id='results-table',
                 columns=[{"name": i, "id": i} for i in table_columns],
-                data=table_df.head(100).to_dict('records'),
+                data=table_records,
 				sort_action='native',
 				filter_action='native',
 				page_action="native",
         		page_current=0,
         		page_size=10,
+                style_data={'backgroundColor': 'transparent'},
+                style_header={'backgroundColor': 'transparent'},
+                style_filter={'backgroundColor': 'transparent', 'color': 'white'},
             ),
         ],
 		className='panel',
@@ -263,7 +294,7 @@ app.clientside_callback(
     Output('cluster_label_filter', 'disabled'),
     Output('cluster_count_filter', 'disabled'),
     Output('cluster-3D-scatter', 'figure'),
-    Output('results-table', 'data'),
+    #Output('results-table', 'data'),
     Output('cluster-num-hist', 'figure'),
     Output('cluster-protein-length', 'figure'),
     Output('cluster-view-button', 'disabled'),
@@ -280,10 +311,12 @@ app.clientside_callback(
 	#Input('cluster-3D-scatter', 'clickData'),
 	Input('cluster-num-hist', 'clickData'),
     )
+@cache.memoize(timeout=60)
 def update_graph(protein, cluster_label, num_neighbor_clusters,
             cluster_view_button, confidence_view_button, functional_view_button,
             #protein_click_data, 
             cluster_click_data):
+    #start = time()
     if cluster_click_data:
         cluster_label = [cluster_click_data['points'][0]['customdata']]
         cluster_click_data = None
@@ -295,6 +328,9 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
     dff = df
     cluster_dff = cluster_df
     table_dff = table_df
+
+    #print(time() - start, "1")
+    #start = time()
 
 
     closest_clusters = compute_closest_clusters(dff)
@@ -332,7 +368,6 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
 
     cluster_dff = cluster_dff[cluster_dff['Cluster Label'].isin(dff['Cluster Label'].unique())]
 
-
     # Adjust dropdown menus
     """
     protein_options = []
@@ -349,25 +384,47 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
 
 
     scatter_dff = dff #dff.sample(1000)
-    color = scatter_dff['Cluster Label']
+    #print(len(scatter_dff), 'before')
+    scatter_dff = scatter_dff[scatter_dff['Cluster Label'] != -1]
+    #print(len(scatter_dff), 'after')
+    #scatter_dff = scatter_dff.sample(min(1000, len(scatter_dff))).sort_values(by=['Cluster Label'])
+    scatter_dff['Cluster Label'] = scatter_dff['Cluster Label'].astype(str)
     if cluster_view:
-        color = scatter_dff['Cluster Label'].astype(str)
+        color = 'Cluster Label'
     elif confidence_view:
         # TODO Set to confidence value!
-        color = scatter_dff['confidence']
+        color = 'confidence'
     elif functional_view:
         # TODO Set to functional value!
-        color = scatter_dff['Y']
+        color = 'Y'
+    else:
+        color = 'Cluster Label'
 
-    scatter_fig = px.scatter_3d(scatter_dff, x=scatter_dff['X'], y=scatter_dff['Y'], z=scatter_dff['Z'],
-              color=color, hover_data={'protein': True, 'length': True, 'Cluster Label': True}, color_discrete_map=color_discrete_map, labels={'color': 'Cluster', 'confidence': 'Confidence'})
-    scatter_fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend=True,
-	    scene = dict(
+    #print(time() - start, "2")
+    #start = time()
+
+    scatter_fig = px.scatter(scatter_dff, x='X', y='Y',
+            #z='Z',
+              color=color,
+              hover_data={'protein': True, 'length': True, 'Cluster Label': True},
+              color_discrete_map=color_discrete_map,
+              labels={'color': 'Cluster', 'confidence': 'Confidence'},
+              render_mode='webgl',
+              #template="plotly_dark",
+              )
+    scatter_fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend=False,
+        font_color = "#FFFFFF",
+	    #scene = dict(
         yaxis={'visible': True, 'showticklabels': False, 'title': ''},
         xaxis={'visible': True, 'showticklabels': False, 'title': ''},
-        zaxis={'visible': True, 'showticklabels': False, 'title': ''},
-        )
+        #zaxis={'visible': True, 'showticklabels': False, 'title': ''},
+        #),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
     )
+    
+    #print(time() - start, "3")
+    #start = time()
 
     """
     cluster_groups = dff.groupby(['Cluster Label'])
@@ -402,6 +459,9 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
               color=df3['Cluster Label'].astype(str), color_discrete_map=color_discrete_map)
 	"""
 
+
+    #print(len(df3), 'before3 cluster')
+
     num_hist = go.Figure(data=go.Scatter3d(
         x=df3['X'],
         y=df3['Y'],
@@ -411,7 +471,7 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
         mode='markers',
         marker=dict(
             sizemode='diameter',
-            sizeref=0.07,
+            sizeref=0.15,
 			#sizemin=4,
             size=df3['log_protein'],
             color=df3['Cluster Label'].apply(lambda x: color_discrete_map[str(x)]),
@@ -420,12 +480,24 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
             line_color='rgba(255, 255, 255, 0)'
         )
     ))
-    num_hist.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend = False,
+
+    #print(time() - start, "4")
+    #start = time()
+
+    num_hist.update_layout(
+        font_color = "#FFFFFF",
+        scene_camera = {'eye': dict(x=1.0, y=1.0, z=0.5)},
+        margin=dict(l=0, r=0, t=0, b=0), showlegend = False,
 	    scene = dict(
-        yaxis={'visible': True, 'showticklabels': False, 'title': ''},
-        xaxis={'visible': True, 'showticklabels': False, 'title': ''},
-        zaxis={'visible': True, 'showticklabels': False, 'title': ''},
-        )
+            yaxis={'visible': True, 'showticklabels': False,
+                'title': '', 'backgroundcolor': 'rgba(0,0,0,0)'},
+            xaxis={'visible': True, 'showticklabels': False,
+                'title': '', 'backgroundcolor': 'rgba(0,0,0,0)'},
+            zaxis={'visible': True, 'showticklabels': False,
+                'title': '', 'backgroundcolor': 'rgba(0,0,0,0)'},
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
     )
 
 
@@ -449,7 +521,11 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
     length_hist.update_layout(margin=dict(l=0, r=0, t=0, b=0), xaxis={'title': 'sequence length'})
     """
 
-    #"""
+    #print(time() - start, "5")
+    #start = time()
+
+
+    """
     table_dfff = table_df.dropna()
     left = dff.set_index('protein')
     right = table_dfff.set_index('target_protein')
@@ -457,28 +533,72 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
     table_dfff = new.reset_index()
     table_dfff = table_dfff.rename(columns={'index': 'target_protein'})
     table_dfff = table_dfff.dropna()
+    print(len(table_dfff), 'before2')
+    #table_dfff = table_dfff[table_dfff['Cluster Label'] != -1]
+    #table_dfff = table_dfff.groupby(['Cluster Label']).mean()
+    table_dfff = table_dfff.sample(min(1000, len(table_dfff))).sort_values(by=['Cluster Label'])
+    print(len(table_dfff), 'after2')
+    table_dfff['tmalign_score'] = table_dfff['tmalign_score'].astype(float)
+    table_dfff['rmsd'] = table_dfff['rmsd'].astype(float)
     length_hist = px.scatter(table_dfff,
 	    x='tmalign_score',
 		y='rmsd',
-		color=table_dfff['Cluster Label'].astype(int).astype(str),
+		color=table_dfff['Cluster Label'].astype(str),
         #color_discrete_map=color_discrete_map, 
         hover_data={'target_protein': True, 'result_protein': True},
 	    #color=table_dff['Cluster Label'].astype(str),
         color_discrete_map=color_discrete_map,
 		#log_x=True,
         labels ={'color': 'Cluster'},
+        render_mode='webgl'
        )
     length_hist.update_layout(margin=dict(l=0, r=0, t=0, b=0), xaxis={'title': 'TM-Align Score'}, yaxis={'title': 'RMSD'})
-    #"""
+    """
+
+    table_dfff = cluster_table_df[
+            cluster_table_df['Cluster Label'].isin(dff['Cluster Label'].unique())]
+    length_hist = px.scatter(table_dfff,
+	    x='tmalign_score',
+		y='rmsd',
+		color=table_dfff['Cluster Label'].astype(str),
+        #hover_data={'target_protein': True, 'result_protein': True},
+	    #color=table_dff['Cluster Label'].astype(str),
+        color_discrete_map=color_discrete_map,
+		#log_x=True,
+        labels ={'color': 'Cluster'},
+        render_mode='webgl'
+       )
+    length_hist.update_layout(
+        font_color = "#FFFFFF",
+        margin=dict(l=0, r=0, t=0, b=0), 
+        xaxis={'title': 'TM-Align Score', 'range': [0.0, 1.0]}, 
+        yaxis={'title': 'RMSD', 'range': [0.0, 12.0]},
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+            )
+    length_hist.add_trace(go.Scatter(
+        x = [0.5, 0.5, 1.0],
+        y = [0.0, 3.0, 3.0],
+        line=dict(color="#FFFFFF", width=4),
+        showlegend=False,
+        ))
+    length_hist.add_trace(go.Scatter(
+        x = [0.52],
+        y = [0.10],
+        mode="text",
+        text=["Strong Similarity Zone"],
+        textposition="top right",
+        showlegend=False,
+        ))
 
     # Model level data
-
+    #print(time() - start, '6 callback')
     return [
             disable_protein_filter,
             disable_cluster_filter,
 			disable_count_filter,
 	        scatter_fig, 
-	        table_dff.to_dict('records'),
+	        #table_dff.to_dict('records'),
 			num_hist,
 			length_hist,
             cluster_view, 

@@ -33,23 +33,21 @@
 }*/
 
 .modelstats {
-  border-radius: 5px;
-  border: 1px solid #666;
+  border-radius: 10px;
+  border: 1px solid #FFF;
   width: 18%;
   display: inline;
   padding: 10px;
   margin-right: 10px;
   margin-bottom: 20px;
   height: 70px;
-  background-color: #DDF;
+  #background-color: #DDF;
 }
 
 .panel {
-  border-radius: 5px;
-  border: 1px solid #666;
   height: 500px;
-  background-color: #FFF;
   padding: 0px 10px 0px 10px;
+  color: #FFF;
 }
 
 
@@ -151,9 +149,9 @@ body {
   font-size: 1.5em; /* currently ems cause chrome bug misinterpreting rems on body element */
   line-height: 1.6;
   font-weight: 400;
-  font-family: "Open Sans", "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  color: rgb(50, 50, 50); 
-  background-color: rgb(255, 255, 255);
+  font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  color: #FFF; 
+  #background-color: rgb(255, 255, 255);
 }
 
 
@@ -199,20 +197,72 @@ a:hover {
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
 .dash-dropdown,
 input[type="dropdown"] {
-  background-color: #ccc;
-  color: #666;
+  background-color: #A11;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: .1rem;
   text-transform: uppercase;
   text-decoration: none;
-  background-color: transparent;
-  border-radius: 5px;
-  border: 1px solid #666;
+  background: rgba(0,0,0,0);
   cursor: pointer;
   box-sizing: border-box; 
   margin: 0px 10px 0px 0px;
 }
+
+.Select-control {
+  background-color: #dda005 !important;
+}
+
+.Select--multi .Select-value {
+  color: white !important;
+}
+
+.Select input{
+  color:white;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1rem;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.Select-value-label {
+  color: white !important;
+}
+
+.Select--single > .Select-control .Select-value, .Select-placeholder {
+    border: 1px solid grey;
+    border-radius: 4px;
+    color: white !important;
+}
+
+.VirtualizedSelectOption {
+    background-color: #FFF;
+    color: black;
+}
+
+.VirtualizedSelectFocusedOption {
+    background-color: #ffc107;
+    color: black;
+}
+
+.current-page {
+    color: white !important;
+    background-color: transparent !important;
+}
+
+.current-page::placeholder {
+    color: white !important;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner :not(.cell--selected) tr:hover, .dash-table-container .dash-spreadsheet-container tr:hover input :not(.cell--selected) {
+    background-color: #FFFFFF66 !important;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner input:not([type=radio]):not([type=checkbox]) {
+    color: #FFF !important;
+}
+
 
 /* Buttons
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
@@ -225,7 +275,7 @@ input[type="button"] {
   height: 25px;
   padding: 0 15px;
   background-color: #ccc;
-  color: #666;
+  color: #FFF;
   text-align: center;
   font-size: 11px;
   font-weight: 600;
@@ -236,7 +286,7 @@ input[type="button"] {
   white-space: nowrap;
   background-color: transparent;
   border-radius: 5px;
-  border: 1px solid #666;
+  border: 1px solid #FFF;
   cursor: pointer;
   box-sizing: border-box; }
 .button:hover,
@@ -249,9 +299,10 @@ button:focus,
 input[type="submit"]:focus,
 input[type="reset"]:focus,
 input[type="button"]:focus {
-  color: #1AA;
-  border-color: #1AA;
-  outline: 0; }
+  background-color: #FFFFFF88;
+  border-color: #FFFFFF88; 
+  color: #FFF;
+  }
 .button.button-primary,
 button.button-primary,
 input[type="submit"].button-primary,
@@ -276,10 +327,9 @@ input[type="button"].button-primary:focus {
 button:disabled,
 button[disabled]{
   cursor: not-allowed;
-  border: 1px solid #191;
-  color: #191;
+  /* background-color: #41D7A7; */
+  color: #FFF;
 }
-
 
 /* Forms
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
@@ -461,3 +511,19 @@ there.
 
 /* Larger than Desktop HD */
 @media (min-width: 1200px) {}
+
+
+
+.view_button:disabled
+{
+  cursor: not-allowed;
+  background-color: #41D7A7 !important;
+  border-color: #41D7A7 !important;
+  color: #FFF;
+}
+.view_button
+{
+  background-color: #FFFFFF66;
+  border-color: #FFFFFF66;
+  color: #FFF;
+}
