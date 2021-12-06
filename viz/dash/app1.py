@@ -197,7 +197,7 @@ layout = html.Div([
 		
 			html.Div([
 				#html.H6('Protein Sequence Lengths Per Cluster'),
-				html.H6('Industry / Gold Standard Structural Similarity Metrics'),
+				html.H6('Cluster Evaluation'),
                 html.P(
                     'Each cluster’s average TM-Align and RMSD scores are displayed. Strong similarity indicates strong confidence in protein structural similarity within a cluster.',
                     className='explanation'),
@@ -257,7 +257,7 @@ layout = html.Div([
         style={'width': '48%', 'display': 'inline-block'}),
 
         html.Div([
-            html.H6('Protein Results and Evaluation'),
+            html.H6('Protein Evaluation'),
             html.P([
                 'Each row in this table represents a protein pair.',
                 html.Br(),
@@ -447,7 +447,7 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
                   'X': False, 'Y': False},
               color_discrete_map=color_discrete_map,
               labels={'color': 'Cluster', 'confidence': 'Confidence', 'protein': 'Protein',
-                  'length': 'Length',
+                  'length': 'Sequence Length',
                   },
               render_mode='webgl',
               #template="plotly_dark",
@@ -510,9 +510,9 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
         text += "<br>" + "Mean Sequence Length=" + "%.2f" % row['mean_seq_len']
         text += "<br>" + "StdDev Sequence Length=" + "%.2f" % row['std_seq_len']
         text += "<br>" + "%.2f" % (np.nan_to_num(row['top_go_occurrence']) * 100) + \
-                "% of Cluster " + \
-                "Belongs to=<br>Functional Group " +  str(row['top_go_id']) + "<br>(" + \
-                str(row['top_go_name']) + ")"
+                "% of Cluster=" + \
+                str(row['top_go_id']) + "<br>(" + \
+                str(row['top_go_name']).title() + ")"
         #text += "<br>" + "Top Go Count: " + "%d" % np.nan_to_num(row['top_go_count'])
         #text += "<br>" + "Top Go Name: " + str(row['top_go_name'])
         #text += "<br>" + "Top Go : " + "%.2f" % np.nan_to_num(row['top_go_occurrence'])
