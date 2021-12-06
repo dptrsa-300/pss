@@ -10,13 +10,16 @@ import webbrowser
 import pickle
 import numpy as np
 
+#import dash_bootstrap_components as dbc
+
 #from time import time
 
 from app import app
 
-from flask_caching import Cache
+#from flask_caching import Cache
 import os
 
+"""
 cache = Cache(app.server, config={
     # try 'filesystem' if you don't want to setup redis
     'CACHE_TYPE': 'filesystem',
@@ -24,6 +27,7 @@ cache = Cache(app.server, config={
     #'CACHE_TYPE': 'redis',
     #'CACHE_REDIS_URL': os.environ.get('REDIS_URL', '')
 })
+"""
 
 
 #start = time()
@@ -52,7 +56,7 @@ else:
     table_df = pd.read_parquet(table_path)
     table_df = table_df.rename(columns={'target_protein': 'result_protein', 'query_protein': 'target_protein', 'cluster': 'Cluster Label'})
 
-    model_path = "assets/mvp_input_2021_1029_0054_model_overview.pkl"
+    model_path = "assets/model_overview.pkl"
     with open(model_path, 'rb') as f:
 	    model_dict = pickle.load(f)
     model_dict['Median number of proteins per cluster'] = cluster_df['count'].median()
@@ -111,6 +115,7 @@ last_views = None
 #print(time() - start, 'init')
 
 layout = html.Div([
+    #dbc.Spinner(color="primary"),
     html.H1('AlphaFold2 Protein Structural Similarity Explorer'),
 	html.Div([
         html.H6('Model Summary', style={'display': 'inline', 'margin-right': '10px'}),
@@ -128,6 +133,13 @@ layout = html.Div([
 	style={'width': '100%', 'display': 'inline-block', 'padding': '0px 0px 15px 0px', }),
     #html.H5('Query by Protein or Cluster'),
     html.Div([
+        html.P(
+            [
+                '1. Start here! Tell us your protein(s) of interest - type or select from the dropdown.',
+                html.Br(),
+                '2. We’ll show you the cluster(s) your protein(s) belong to. You can also tell us how many additional neighboring clusters you’d like to see.'
+            ],
+            className='explanation'),
         html.Div([
             dcc.Dropdown(
                 id='protein_filter', className='dropdown',
@@ -167,6 +179,9 @@ layout = html.Div([
                 #html.H5('Cluster Comparisons'),
 			html.Div([
 				html.H6('Cluster Explorer'),
+                html.P(
+                    'Each bubble in this 3D space represents a cluster. Pan, zoom, spin - hover for annotations, click to see details (all charts will update).', 
+                    className='explanation'),
             	dcc.Graph(
                 	id='cluster-num-hist',
 				)
@@ -177,6 +192,9 @@ layout = html.Div([
 			html.Div([
 				#html.H6('Protein Sequence Lengths Per Cluster'),
 				html.H6('Industry / Gold Standard Structural Similarity Metrics'),
+                html.P(
+                    'Each cluster’s average TM-Align and RMSD scores are displayed. Strong similarity indicates strong confidence in protein structural similarity within a cluster.',
+                    className='explanation'),
             	dcc.Graph(
                 	id='cluster-protein-length',
 				)
@@ -209,7 +227,7 @@ layout = html.Div([
                     id='functional-view-button', className='view_button'),
             ],
 	    style={'width': '25%', 'display': 'inline-block', 
-                   'float': 'right', 'padding': '12px 0px'}),
+                   'float': 'right', 'padding': '12px 0px', 'display': 'none'}),
             html.Div([
                 html.Button('Confidence View', n_clicks=0,
                     id='confidence-view-button', className='view_button'),
@@ -217,6 +235,13 @@ layout = html.Div([
 	    style={'width': '25%', 'display': 'inline-block', 
                    'float': 'right', 'padding': '12px 0px'}),
             ]),
+            html.Div([
+                html.P(
+                    'Each point in this 2D space represents a protein. Pan, zoom - hover for annotations, click to see Uniprot details (opens in new tab).',
+                    className='explanation'),
+            ],
+	    style={'width': '100%', 'display': 'inline-block', 
+                   'float': 'none', 'padding': '0px 0px'}),
             dcc.Graph(
                 id='cluster-3D-scatter',
                 #hoverData={'points': [{'customdata': 'Japan'}]}
@@ -227,6 +252,12 @@ layout = html.Div([
 
         html.Div([
             html.H6('Protein Results and Evaluation'),
+            html.P([
+                'Each row in this table represents a protein pair.',
+                html.Br(),
+                'Sort or filter by any column.'
+                ],
+                className='explanation'),
             dash_table.DataTable(
                 id='results-table',
                 columns=[{"name": i, "id": i} for i in table_columns],
@@ -311,7 +342,7 @@ app.clientside_callback(
 	#Input('cluster-3D-scatter', 'clickData'),
 	Input('cluster-num-hist', 'clickData'),
     )
-@cache.memoize(timeout=60)
+#@cache.memoize(timeout=60)
 def update_graph(protein, cluster_label, num_neighbor_clusters,
             cluster_view_button, confidence_view_button, functional_view_button,
             #protein_click_data, 
@@ -406,9 +437,12 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
     scatter_fig = px.scatter(scatter_dff, x='X', y='Y',
             #z='Z',
               color=color,
-              hover_data={'protein': True, 'length': True, 'Cluster Label': True},
+              hover_data={'protein': True, 'length': True, 'Cluster Label': True,
+                  'X': False, 'Y': False},
               color_discrete_map=color_discrete_map,
-              labels={'color': 'Cluster', 'confidence': 'Confidence'},
+              labels={'color': 'Cluster', 'confidence': 'Confidence', 'protein': 'Protein',
+                  'length': 'Length',
+                  },
               render_mode='webgl',
               #template="plotly_dark",
               )
@@ -458,20 +492,46 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
     num_hist = px.scatter_3d(df3, x=df3['X'], y=df3['Y'], z=df3['Z'], size=df3['log_protein'],
               color=df3['Cluster Label'].astype(str), color_discrete_map=color_discrete_map)
 	"""
-
-
     #print(len(df3), 'before3 cluster')
+
+    df3 = df3.set_index('Cluster Label').join(cluster_dff.set_index('Cluster Label')).reset_index()
+
+    def create_text(row):
+        text = ""
+        text += "Cluster Label=" + str(int(row['Cluster Label']))
+        text += "<br>" + "Protein Count=" + str(int(row['protein']))
+        text += "<br>" + "AlphaFold2 pLDDT=" + "%.2f" % row['protein_confidence'] + "%"
+        text += "<br>" + "Mean Sequence Length=" + "%.2f" % row['mean_seq_len']
+        text += "<br>" + "StdDev Sequence Length=" + "%.2f" % row['std_seq_len']
+        text += "<br>" + "%.2f" % (np.nan_to_num(row['top_go_occurrence']) * 100) + \
+                "% of Cluster " + \
+                "Belongs to=<br>Functional Group " +  str(row['top_go_id']) + "<br>(" + \
+                str(row['top_go_name']) + ")"
+        #text += "<br>" + "Top Go Count: " + "%d" % np.nan_to_num(row['top_go_count'])
+        #text += "<br>" + "Top Go Name: " + str(row['top_go_name'])
+        #text += "<br>" + "Top Go : " + "%.2f" % np.nan_to_num(row['top_go_occurrence'])
+        return text
+
+    df3['Text'] = df3.apply(create_text, axis="columns")
+
+    hovertemplate = "<br>".join([
+        #"X=%{x}",
+        #"Y=%{y}",
+        #"Z=%{z}",
+        "%{text}",
+    ]) + "<extra></extra>"
 
     num_hist = go.Figure(data=go.Scatter3d(
         x=df3['X'],
         y=df3['Y'],
         z=df3['Z'],
-		customdata=df3['Cluster Label'],
-        text=df3['Cluster Label'].astype(str),
+        customdata=df3['Cluster Label'],
+        text=df3['Text'].astype(str),
+        hovertemplate=hovertemplate,
         mode='markers',
         marker=dict(
             sizemode='diameter',
-            sizeref=0.15,
+            sizeref=0.25,
 			#sizemin=4,
             size=df3['log_protein'],
             color=df3['Cluster Label'].apply(lambda x: color_discrete_map[str(x)]),
@@ -565,7 +625,7 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
 	    #color=table_dff['Cluster Label'].astype(str),
         color_discrete_map=color_discrete_map,
 		#log_x=True,
-        labels ={'color': 'Cluster'},
+        labels ={'color': 'Cluster Label', 'rmsd': 'RMSD', 'tmalign_score': 'TM-Align Score'},
         render_mode='webgl'
        )
     length_hist.update_layout(
