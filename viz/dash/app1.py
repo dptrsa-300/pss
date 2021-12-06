@@ -116,17 +116,18 @@ last_views = None
 
 layout = html.Div([
     #dbc.Spinner(color="primary"),
-    html.H1('AlphaFold2 Protein Structural Similarity Explorer'),
+    html.H1('AlphaFold2 Protein Similarity Explorer'),
 	html.Div([
         html.H6('Model Summary', style={'display': 'inline', 'margin-right': '10px'}),
-        html.Div(children= '%s: %s' % ('Total Proteins', model_dict['Total number of proteins']),
+        html.Div(children= '%s: %s' % ('Total Proteins',
+            "{:,}".format(model_dict['Total number of proteins'])),
             id='model-noise', className='modelstats'),
 		html.Div(children= '%s: %s' % ('Total Clusters', model_dict['Number of clusters (excl. noise)']),
             id='model-clusters', className='modelstats'),
         html.Div(children= '%s: %2.2f%%' % ('Percent of Proteins Unclustered' ,model_dict['Noise as % of total'] * 100),
             id='model-noise-percent', className='modelstats'),
-        html.Div(children= '%s: %s Proteins' % ('Largest Cluster' ,model_dict['Largest non-noise cluster']),
-            id='model-non-noise', className='modelstats'),
+        #html.Div(children= '%s: %s Proteins' % ('Largest Cluster' ,model_dict['Largest non-noise cluster']),
+        #    id='model-non-noise', className='modelstats'),
         html.Div(children= '%s: %d Proteins' % ('Median Cluster Size', model_dict['Median number of proteins per cluster']),
             id='model-median', className='modelstats'),
     ],
@@ -135,7 +136,7 @@ layout = html.Div([
     html.Div([
         html.P(
             [
-                'Instructions:',
+                html.Strong('Instructions:'),
                 html.Br(),
                 '(A) Start here! Tell us your protein(s) of interest - type or select from the dropdown. We’ll show you the cluster(s) your proteins belong to.',
                 html.Br(),
@@ -284,7 +285,9 @@ layout = html.Div([
     ],
     style={'width': '100%', 'display': 'inline-block', 'padding': '0px 0px 10px 0px'}),
 
-])
+],
+style={'padding': '15px'}
+)
 
 def toggle_view():
     global last_views

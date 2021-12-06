@@ -33,20 +33,21 @@
 }*/
 
 .modelstats {
-  border-radius: 10px;
+  border-radius: 15px;
   border: 1px solid #FFF;
   width: 18%;
   display: inline;
-  padding: 10px;
+  padding: 5px 10px;
   margin-right: 10px;
   margin-bottom: 20px;
-  height: 70px;
+  height: 50px;
+  font-size: 10pt; 
   #background-color: #DDF;
 }
 
 .panel {
-  height: 500px;
-  padding: 0px 10px 0px 10px;
+  height: 550px;
+  padding: 0px 0px 0px 0px;
   color: #FFF;
 }
 
@@ -525,5 +526,38 @@ there.
 {
   background-color: #FFFFFF66;
   border-color: #FFFFFF66;
-  color: #FFF;
+  color: #FFFFFF;
+}
+
+
+
+/* *[data-dash-is-loading="true"] */
+#cluster-num-hist[data-dash-is-loading="true"],
+#cluster-protein-length[data-dash-is-loading="true"],
+#cluster-3D-scatter[data-dash-is-loading="true"],
+#page-content[data-dash-is-loading="true"]
+{
+    visibility: hidden;
+}
+
+/* *[data-dash-is-loading="true"]::before */
+#cluster-num-hist[data-dash-is-loading="true"]::before,
+#cluster-protein-length[data-dash-is-loading="true"]::before,
+#cluster-3D-scatter[data-dash-is-loading="true"]::before,
+#page-content[data-dash-is-loading="true"]::before
+{
+    content: "Loading...";
+    display: inline-block;
+    color: white;
+    visibility: visible;
+    margin: auto;
+    width: 50%;
+    padding: 10px;
+}
+
+.explanation
+{
+    font-size: 10pt !important;
+    font-style: italic !important;
+    /* padding: 10px !important; */ 
 }
