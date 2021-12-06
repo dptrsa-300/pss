@@ -1,0 +1,54 @@
+Model Outputs																											
+			Cluster Quality								Structural Similarity		Sequential Similarity		Functional Similarity		Structural + Sequential				PLOT DATA - DO NOT EDIT						
+ID	Model	Embedding	# in Noise	# in largest cluster	# Proteins	% Proteins in Noise	% Proteins in Noise + largest cluster	Num. Clusters	Silhouette Score	DB Index	TM-Align	RMSD	BitScore	E-Value	FunSim Score	FunSim coverage	% protein pairs in "good place"	% clusters in "good place"	TM Align Coverage		series	noise_pct	silhouette	func_sim	goodplace_pairs_pct	goodplace_clusters_pct	metrics_coverage_pct
+id	model	embedding	noise	largest_clus	proteins	perc_noise	perc_noise_largest_clus	clusters	silhouette	db	tm_align	rmsd	bitscore	e_value	funsim_scr	funsim_coverage	perc_protein_good_place	perc_cluster_good_place	tm_coverage		series	noise_pct	silhouette	func_sim	goodplace_pairs_pct	goodplace_clusters_pct	metrics_coverage_pct
+RAND	RAND	Random																			RAND-Random						
+																											
+A2EP	DBSCAN	SeqVec	12,293	691	19,515	63%	67%	1,534	0.37	0.75					0.39	97%	61%	44%	65%		DBSCAN-SeqVec	0.6299	0.3678	0.3943	0.6078	0.4437	0.6532
+																											
+A1EP	DBSCAN	DeepFold	9,923	4,571	19,325	51%	75%	1,221	0.00	0.93					0.05	78%	4%	57%	2%		DBSCAN-DeepFold	0.5135	-0.0004	0.0508	0.0372	0.5711	0.0241
+																											
+A3EP	DBSCAN	Structure LSTM + SeqVec	17,094	232	19,442	88%	89%	714	0.55	0.48					0.74	97%	87%	59%	80%		DBSCAN-Structure LSTM + SeqVec	0.8792	0.5485	0.7392	0.8735	0.5855	0.8043
+																											
+																											
+																											
+B2EP	HDBSCAN	SeqVec	10,840	416	19,515	56%	58%	741	0.23	1.36					0.50	94%	57%	24%	81%		HDBSCAN-SeqVec	0.5555	0.2331	0.5021	0.5686	0.2363	0.8117
+B2EPA	HDBSCAN	SeqVec	13,462	401	19,515	69%	71%	314	0.32	1.10					0.46	92%	44%	31%	65%		HDBSCAN-SeqVec	0.6898	0.3240	0.4601	0.4423	0.3131	0.6491
+B2EPB	HDBSCAN	SeqVec	12,003	416	19,515	62%	64%	284	0.24	1.42					0.45	92%	40%	23%	69%		HDBSCAN-SeqVec	0.6151	0.2441	0.4502	0.3963	0.2332	0.6895
+B2EPC	HDBSCAN	SeqVec	13,854	446	19,515	71%	73%	184	0.33	1.10					0.48	86%	42%	28%	61%		HDBSCAN-SeqVec	0.7099	0.3332	0.4772	0.4165	0.2787	0.6139
+																											
+B1EPA	HDBSCAN	DeepFold	15,414	308	19,325	80%	81%	233	0.42	0.91					0.51	87%	58%	54%	61%		HDBSCAN-DeepFold	0.7976	0.4241	0.5136	0.5813	0.5351	0.6117
+B1EPC	HDBSCAN	DeepFold	15,191	754	19,325	79%	83%	120	0.40	0.96					0.26	75%	47%	55%	24%		HDBSCAN-DeepFold	0.7861	0.4033	0.2623	0.4655	0.5546	0.2425
+																											
+B3EP_A	HDBSCAN	Structure LSTM + SeqVec	8,802	435	19,442	45%	48%	833	0.17	1.57					0.51	94%	42%	26%	69%		HDBSCAN-Structure LSTM + SeqVec	0.4527	0.1737	0.5143	0.4157	0.2602	0.6901
+B3EP_B	HDBSCAN	Structure LSTM + SeqVec	9,556	457	19,442	49%	52%	358	0.16	1.76					0.44	93%	32%	17%	66%		HDBSCAN-Structure LSTM + SeqVec	0.4915	0.1574	0.4365	0.3166	0.1653	0.6589
+B3EP_C	HDBSCAN	Structure LSTM + SeqVec	12,068	428	19,442	62%	64%	630	0.26	1.33					0.50	98%	44%	33%	68%		HDBSCAN-Structure LSTM + SeqVec	0.6207	0.2631	0.5036	0.4386	0.3311	0.6839
+B3EP_D	HDBSCAN	Structure LSTM + SeqVec	13,854	436	19,442	71%	74%	222	0.28	1.39					0.50	93%	45%	26%	73%		HDBSCAN-Structure LSTM + SeqVec	0.7126	0.2764	0.5032	0.4451	0.2636	0.7286
+																											
+																											
+C2	OPTICS	SeqVec																			OPTICS-SeqVec						
+																					-						
+C1EPA	OPTICS	DeepFold																			OPTICS-DeepFold						
+C1EPB	OPTICS	DeepFold																			OPTICS-DeepFold						
+C1EPC	OPTICS	DeepFold	10,958	10	19,320	57%		3,229	0.80												OPTICS-DeepFold	0.5700	0.8028				
+C1EPD	OPTICS	DeepFold																			OPTICS-DeepFold						
+C1EPE	OPTICS	DeepFold																			OPTICS-DeepFold						
+C1EPF	OPTICS	DeepFold																			OPTICS-DeepFold						
+C1EPG	OPTICS	DeepFold																			OPTICS-DeepFold						
+C1EPH	OPTICS	DeepFold																			OPTICS-DeepFold						
+																					-						
+C3-EP-B	OPTICS	Structure LSTM + SeqVec	8,721	16	19,442	45%	45%	3,948	1.02						0.46		44%	43%	75%		OPTICS-Structure LSTM + SeqVec	0.4486	1.0226	0.4641	0.4449	0.4320	0.7510
+C3-EP-C	OPTICS	Structure LSTM + SeqVec	11,821	27	19,442	61%	61%	1,631	1.14						0.44	90%	40%	39%	83%		OPTICS-Structure LSTM + SeqVec	0.6080	1.1408	0.4376	0.3979	0.3892	0.8250
+C3-EP-D	OPTICS	Structure LSTM + SeqVec	13,758	49	19,442	71%	71%	622	1.23						0.37	91%	33%	34%	86%		OPTICS-Structure LSTM + SeqVec	0.7076	1.2309	0.3733	0.3306	0.3361	0.8638
+C3-EP-E	OPTICS	Structure LSTM + SeqVec	11,005	10	19,442	57%	57%	3,231	0.87						0.50	91%	48%	45%	82%		OPTICS-Structure LSTM + SeqVec	0.5660	0.8706	0.5043	0.4751	0.4539	0.8237
+C3-EP-F	OPTICS	Structure LSTM + SeqVec	14,324	21	19,442	74%	74%	1,165	0.93						0.49	92%	41%	45%	90%		OPTICS-Structure LSTM + SeqVec	0.7368	0.9308	0.4875	0.4090	0.4496	0.8976
+C3-EP-G	OPTICS	Structure LSTM + SeqVec	16,584	50	19,442	85%	86%	336	0.93						0.40	89%	34%	45%	93%		OPTICS-Structure LSTM + SeqVec	0.8530	0.9308	0.3981	0.3421	0.4545	0.9332
+																											
+																											
+																											
+B6_A	HDBSCAN	(DO NOT USE) CurveNet 100D	14,886	595	19,441	76%	79%	1,246	0.07	1.37					0.42	94%	60%	7%	77%		HDBSCAN-(DO NOT USE) CurveNet 100D	0.7637	0.0675	0.4215	0.6034	0.0722	0.7678
+B6_B	HDBSCAN	(DO NOT USE) CurveNet 100D	16,677	716	19,441	86%	89%	361	0.05	1.35					0.35	89%	64%	14%	59%		HDBSCAN-(DO NOT USE) CurveNet 100D	0.8556	0.0513	0.3538	0.6446	0.1379	0.5939
+B7_A	HDBSCAN	(DO NOT USE) CurveNet 50D	15,932	787	19,441	82%	86%	145	0.10	1.91					0.26	92%	64%	13%	44%		HDBSCAN-(DO NOT USE) CurveNet 50D	0.8174	0.0979	0.2588	0.6421	0.1308	0.4367
+B7_B	HDBSCAN	(DO NOT USE) CurveNet 50D	16,420	741	19,441	84%	88%	494	0.11	1.33					0.35	94%	68%	17%	64%		HDBSCAN-(DO NOT USE) CurveNet 50D	0.8424	0.1123	0.3543	0.6841	0.1659	0.6360
+B7_C	HDBSCAN	(DO NOT USE) CurveNet 50D	16,476	787	19,441	85%	89%	38	0.22	1.80					0.26	92%	64%	13%	43%		HDBSCAN-(DO NOT USE) CurveNet 50D	0.8453	0.2167	0.2572	0.6404	0.1316	0.4337
+C3-EP-A	OPTICS	(DO NOT USE) CurveNet	13,473	12	19,491	69%	69%	2,422	1.08								26%	21%	58%		OPTICS-(DO NOT USE) CurveNet	0.6912	1.0785		0.2587	0.2133	0.5783
