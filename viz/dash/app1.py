@@ -135,9 +135,15 @@ layout = html.Div([
     html.Div([
         html.P(
             [
-                '1. Start here! Tell us your protein(s) of interest - type or select from the dropdown.',
+                'Instructions:',
                 html.Br(),
-                '2. We’ll show you the cluster(s) your protein(s) belong to. You can also tell us how many additional neighboring clusters you’d like to see.'
+                '(A) Start here! Tell us your protein(s) of interest - type or select from the dropdown. We’ll show you the cluster(s) your proteins belong to.',
+                html.Br(),
+                '(B) (Advanced Users Only) Instead of target proteins, you can also select target cluster(s) (if you already know which cluster(s) you’d like).',
+                html.Br(),
+                '(C) You can also tell us how many additional neighboring clusters you’d like to explore.',
+                html.Br(),
+                'We recommend only using A + C for first-time users.'
             ],
             className='explanation'),
         html.Div([
@@ -145,7 +151,7 @@ layout = html.Div([
                 id='protein_filter', className='dropdown',
                 options=[{'label': i, 'value': i} for i in protein_indicators],
                 value='',
-                placeholder='Type or Select Target Protein',
+                placeholder='(A) Type or Select Target Protein',
                 multi=True,
             ),
         ],
@@ -155,7 +161,7 @@ layout = html.Div([
                 id='cluster_label_filter', className='dropdown',
                 options=[{'label': i, 'value': i} for i in cluster_indicators],
                 value=-999,
-                placeholder='Type or Select Cluster ID',
+                placeholder='(B) Type or Select Cluster ID',
                 multi=True,
             ),
         ],
@@ -165,7 +171,7 @@ layout = html.Div([
                 id='cluster_count_filter', className='dropdown',
                 options=(lambda x: x[0].update({'label': '1 Cluster'}) or x)([{'label': str(i)  + ' Clusters', 'value': i} for i in range(1, len(cluster_indicators))]),
                 value=0,
-                placeholder='Select Number of Next Closest Clusters to Show',
+                placeholder='(C) Select Number of Next Closest Clusters to Show',
 				disabled=True,
                 multi=False,
             ),
