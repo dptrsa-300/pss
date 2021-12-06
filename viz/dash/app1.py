@@ -349,6 +349,7 @@ app.clientside_callback(
     Output('confidence-view-button', 'disabled'),
     Output('functional-view-button', 'disabled'),
     Output('cluster_label_filter', 'value'),
+	Output('cluster-protein-length', 'clickData'),
 	Output('cluster-num-hist', 'clickData'),
     Input('protein_filter', 'value'),
     Input('cluster_label_filter', 'value'),
@@ -356,15 +357,18 @@ app.clientside_callback(
     Input('cluster-view-button', 'n_clicks'),
     Input('confidence-view-button', 'n_clicks'),
     Input('functional-view-button', 'n_clicks'),
-	#Input('cluster-3D-scatter', 'clickData'),
+	Input('cluster-protein-length', 'clickData'),
 	Input('cluster-num-hist', 'clickData'),
     )
 #@cache.memoize(timeout=60)
 def update_graph(protein, cluster_label, num_neighbor_clusters,
             cluster_view_button, confidence_view_button, functional_view_button,
-            #protein_click_data, 
+            protein_click_data, 
             cluster_click_data):
     #start = time()
+    if protein_click_data:
+        cluster_label = [protein_click_data['points'][0]['customdata'][0]]
+        protein_click_data = None
     if cluster_click_data:
         cluster_label = [cluster_click_data['points'][0]['customdata']]
         cluster_click_data = None
@@ -637,6 +641,7 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
     length_hist = px.scatter(table_dfff,
 	    x='tmalign_score',
 		y='rmsd',
+        custom_data=['Cluster Label'],
 		color=table_dfff['Cluster Label'].astype(str),
         #hover_data={'target_protein': True, 'result_protein': True},
 	    #color=table_dff['Cluster Label'].astype(str),
@@ -682,5 +687,6 @@ def update_graph(protein, cluster_label, num_neighbor_clusters,
             confidence_view,
 			functional_view,
 			cluster_label,
+            protein_click_data,
 			cluster_click_data,
            ]
