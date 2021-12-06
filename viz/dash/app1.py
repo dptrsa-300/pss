@@ -79,6 +79,9 @@ def compute_closest_clusters(df):
     closest_clusters = {label: cluster_label.iloc[np.argsort(dist)[1:].tolist()].to_list() for label, dist in zip(cluster_label, distances)}
     return closest_clusters
 
+# Remove unclustered proteins
+df = df[df['Cluster Label'] != -1].sort_values(by=['Cluster Label'])
+
 #closest_clusters = compute_closest_clusters(df)
 
 protein_indicators = df['protein'].unique()
