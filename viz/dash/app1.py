@@ -287,7 +287,12 @@ layout = html.Div([
                'float': 'right',}),
     ],
     style={'width': '100%', 'display': 'inline-block', 'padding': '0px 0px 10px 0px'}),
-
+    html.Div([
+        html.A('© 2021 | For Details: Click Here To See Project Homepage | S2-ProCLAIM', 
+            href='https://people.ischool.berkeley.edu/~linda/capstone/protein-explorer/',
+            className='projectlink'),
+    ],
+    style={'width': '100%', 'text-align': 'center'}),
 ],
 style={'padding': '15px'}
 )

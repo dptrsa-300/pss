@@ -561,3 +561,19 @@ there.
     font-style: italic !important;
     /* padding: 10px !important; */ 
 }
+
+.projectlink:link{
+    color: white !important;
+}
+
+.projectlink:visited{
+    color: white !important;
+}
+
+.projectlink:hover{
+    color: #FFFFFF88 !important;
+}
+
+.projectlink:active{
+    color: #FFFFFF88 !important;
+}
