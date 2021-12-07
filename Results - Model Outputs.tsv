@@ -2,6 +2,7 @@ Model Outputs
 			Cluster Quality								Structural Similarity		Sequential Similarity		Functional Similarity		Structural + Sequential				PLOT DATA - DO NOT EDIT						
 ID	Model	Embedding	# in Noise	# in largest cluster	# Proteins	% Proteins in Noise	% Proteins in Noise + largest cluster	Num. Clusters	Silhouette Score	DB Index	TM-Align	RMSD	BitScore	E-Value	FunSim Score	FunSim coverage	% protein pairs in "good place"	% clusters in "good place"	TM Align Coverage		series	noise_pct	silhouette	func_sim	goodplace_pairs_pct	goodplace_clusters_pct	metrics_coverage_pct
 id	model	embedding	noise	largest_clus	proteins	perc_noise	perc_noise_largest_clus	clusters	silhouette	db	tm_align	rmsd	bitscore	e_value	funsim_scr	funsim_coverage	perc_protein_good_place	perc_cluster_good_place	tm_coverage		series	noise_pct	silhouette	func_sim	goodplace_pairs_pct	goodplace_clusters_pct	metrics_coverage_pct
+																											
 RAND	RAND	Random																			RAND-Random						
 																											
 A2EP	DBSCAN	SeqVec	12,293	691	19,515	63%	67%	1,534	0.37	0.75					0.39	97%	61%	44%	65%		DBSCAN-SeqVec	0.6299	0.3678	0.3943	0.6078	0.4437	0.6532
@@ -26,17 +27,20 @@ B3EP_C	HDBSCAN	Structure LSTM + SeqVec	12,068	428	19,442	62%	64%	630	0.26	1.33		
 B3EP_D	HDBSCAN	Structure LSTM + SeqVec	13,854	436	19,442	71%	74%	222	0.28	1.39					0.50	93%	45%	26%	73%		HDBSCAN-Structure LSTM + SeqVec	0.7126	0.2764	0.5032	0.4451	0.2636	0.7286
 																											
 																											
-C2	OPTICS	SeqVec																			OPTICS-SeqVec						
-																					-						
-C1EPA	OPTICS	DeepFold																			OPTICS-DeepFold						
-C1EPB	OPTICS	DeepFold																			OPTICS-DeepFold						
-C1EPC	OPTICS	DeepFold	10,958	10	19,320	57%		3,229	0.80												OPTICS-DeepFold	0.5700	0.8028				
-C1EPD	OPTICS	DeepFold																			OPTICS-DeepFold						
-C1EPE	OPTICS	DeepFold																			OPTICS-DeepFold						
-C1EPF	OPTICS	DeepFold																			OPTICS-DeepFold						
-C1EPG	OPTICS	DeepFold																			OPTICS-DeepFold						
-C1EPH	OPTICS	DeepFold																			OPTICS-DeepFold						
-																					-						
+C2EPA	OPTICS	SeqVec	9,307	11	19,515	48%	48%	3,845	0.93						0.45	88%	40%	42%	83%		OPTICS-SeqVec	0.4769	0.9282	0.4538	0.3954	0.4238	0.8296
+C2EPB	OPTICS	SeqVec	12,780	19	19,515	65%	66%	1,459	1.03						0.44	90%	38%	38%	93%		OPTICS-SeqVec	0.6549	1.0281	0.4399	0.3786	0.3777	0.9282
+C2EPC	OPTICS	SeqVec	14,899	31	19,515	76%	77%	519	1.04						0.37	88%	35%	37%	95%		OPTICS-SeqVec	0.7635	1.0431	0.3721	0.3536	0.3714	0.9505
+C2EPD	OPTICS	SeqVec	10,845	11	19,515	56%	56%	3,350	0.84						0.49	89%	44%	44%	86%		OPTICS-SeqVec	0.5557	0.8366	0.4881	0.4432	0.4421	0.8628
+C2EPE	OPTICS	SeqVec	14,481	19	19,515	74%	74%	1,189	0.89						0.49	90%	43%	43%	93%		OPTICS-SeqVec	0.7420	0.8873	0.4896	0.4270	0.4268	0.9267
+C2EPF	OPTICS	SeqVec	16,506	52	19,515	85%	85%	351	0.87						0.41	88%	39%	44%	96%		OPTICS-SeqVec	0.8458	0.8746	0.4065	0.3891	0.4368	0.9606
+																											
+C1EP	OPTICS	DeepFold	9,870	16	19,325	51%	51%	3,567	0.84						0.46	85%	52%	50%	66%		OPTICS-DeepFold	0.5107	0.8427	0.4558	0.5201	0.4965	0.6571
+C1EPA	OPTICS	DeepFold	13,555	17	19,325	70%	70%	1,308	0.93						0.45	84%	52%	49%	70%		OPTICS-DeepFold	0.7014	0.9293	0.4485	0.5194	0.4885	0.6951
+C1EPB	OPTICS	DeepFold	15,997	37	19,325	83%	83%	402	0.90						0.40	83%	56%	51%	69%		OPTICS-DeepFold	0.8278	0.8957	0.4024	0.5598	0.5144	0.6870
+C1EPC	OPTICS	DeepFold	10,642	15	19,325	55%	55%	3,314	0.79						0.47	85%	54%	51%	68%		OPTICS-DeepFold	0.5507	0.7941	0.4721	0.5435	0.5083	0.6791
+C1EPD	OPTICS	DeepFold	14,402	17	19,325	75%	75%	1,152	0.83						0.46	84%	54%	52%	72%		OPTICS-DeepFold	0.7453	0.8332	0.4639	0.5426	0.5173	0.7213
+C1EPE	OPTICS	DeepFold	16,593	30	19,325	86%	86%	342	0.80						0.45	82%	58%	55%	70%		OPTICS-DeepFold	0.8586	0.8046	0.4534	0.5789	0.5455	0.6982
+																											
 C3-EP-B	OPTICS	Structure LSTM + SeqVec	8,721	16	19,442	45%	45%	3,948	1.02						0.46		44%	43%	75%		OPTICS-Structure LSTM + SeqVec	0.4486	1.0226	0.4641	0.4449	0.4320	0.7510
 C3-EP-C	OPTICS	Structure LSTM + SeqVec	11,821	27	19,442	61%	61%	1,631	1.14						0.44	90%	40%	39%	83%		OPTICS-Structure LSTM + SeqVec	0.6080	1.1408	0.4376	0.3979	0.3892	0.8250
 C3-EP-D	OPTICS	Structure LSTM + SeqVec	13,758	49	19,442	71%	71%	622	1.23						0.37	91%	33%	34%	86%		OPTICS-Structure LSTM + SeqVec	0.7076	1.2309	0.3733	0.3306	0.3361	0.8638
